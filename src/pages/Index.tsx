@@ -4,9 +4,64 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import Layout from "@/components/Layout";
 import { categories, restaurants } from "@/data/dummyData";
-import OfferCarousel from "@/components/OfferCarousel"; // Import the new component
+import OfferCarousel from "@/components/OfferCarousel";
+import { RestaurantFilters, FilterState } from "@/components/RestaurantFilters";
+import RecommendedSection from "@/components/RecommendedSection";
+import SmartRecommendations from "@/components/SmartRecommendations";
+import VoiceOrderingCard from "@/components/VoiceOrderingCard";
+import { useState, useMemo } from "react";
 
 const Index = () => {
+  const [filters, setFilters] = useState<FilterState>({
+    search: "",
+    cuisine: "all",
+    minRating: 0,
+    maxPrice: 100,
+    maxDistance: 10,
+    dietary: [],
+    sortBy: "rating",
+  });
+
+  const filteredRestaurants = useMemo(() => {
+    let filtered = [...restaurants];
+
+    // Search filter
+    if (filters.search) {
+      const searchLower = filters.search.toLowerCase();
+      filtered = filtered.filter(
+        (r) =>
+          r.name.toLowerCase().includes(searchLower) ||
+          r.cuisine.toLowerCase().includes(searchLower) ||
+          r.menu.some((m) => m.name.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Cuisine filter
+    if (filters.cuisine !== "all") {
+      filtered = filtered.filter((r) => r.cuisine.toLowerCase() === filters.cuisine);
+    }
+
+    // Rating filter
+    filtered = filtered.filter((r) => r.rating >= filters.minRating);
+
+    // Sort
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case "rating":
+          return b.rating - a.rating;
+        case "price":
+          return (
+            a.menu.reduce((sum, m) => sum + m.price, 0) / a.menu.length -
+            b.menu.reduce((sum, m) => sum + m.price, 0) / b.menu.length
+          );
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  }, [filters]);
+
   return (
     <Layout>
       <div className="space-y-12">
@@ -32,6 +87,9 @@ const Index = () => {
           <OfferCarousel />
         </section>
 
+        <RecommendedSection />
+        <SmartRecommendations />
+
         {/* Categories Section */}
         <section className="text-center">
           <h2 className="text-3xl font-bold mb-6 text-foreground">Popular Categories</h2>
@@ -55,11 +113,23 @@ const Index = () => {
           </div>
         </section>
 
+        {/* Restaurant Filters */}
+        <section>
+          <RestaurantFilters onFilterChange={setFilters} />
+        </section>
+
         {/* Featured Restaurants Section */}
         <section>
-          <h2 className="text-3xl font-bold mb-6 text-foreground text-center">Featured Restaurants</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {restaurants.map((restaurant) => (
+          <h2 className="text-3xl font-bold mb-6 text-foreground text-center">
+            {filters.search ? "Search Results" : "Featured Restaurants"}
+          </h2>
+          {filteredRestaurants.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-muted-foreground">No restaurants found matching your filters.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRestaurants.map((restaurant) => (
               <Link to={`/restaurant/${restaurant.id}`} key={restaurant.id}>
                 <Card className="overflow-hidden rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
                   <CardContent className="p-0">
@@ -85,14 +155,18 @@ const Index = () => {
               </Link>
             ))}
           </div>
+          )}
         </section>
 
         {/* Map Integration Placeholder */}
-        <section className="text-center">
-          <h2 className="text-3xl font-bold mb-6 text-foreground">Find Restaurants Near You</h2>
-          <div className="bg-gray-200 dark:bg-gray-800 rounded-xl h-64 flex items-center justify-center text-muted-foreground text-lg">
-            <p>Map integration coming soon! (Placeholder)</p>
+        <section className="grid gap-6 md:grid-cols-2 items-start">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl font-bold text-foreground">Find Restaurants Near You</h2>
+            <div className="bg-gray-200 dark:bg-gray-800 rounded-xl h-64 flex items-center justify-center text-muted-foreground text-lg">
+              <p>Map integration coming soon! (Placeholder)</p>
+            </div>
           </div>
+          <VoiceOrderingCard />
         </section>
       </div>
     </Layout>

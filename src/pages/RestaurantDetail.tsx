@@ -1,18 +1,23 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Layout from "@/components/Layout";
 import { restaurants } from "@/data/dummyData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Clock, MapPin } from "lucide-react";
-import { useCart } from "@/context/CartContext"; // Import useCart
+import { useCart } from "@/context/CartContext";
+import { MenuItemCustomization, CustomizedMenuItem } from "@/components/MenuItemCustomization";
+import { RatingsAndReviews } from "@/components/RatingsAndReviews";
+import SocialShareButtons from "@/components/SocialShareButtons";
 
 const RestaurantDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const restaurant = restaurants.find((r) => r.id === id);
-  const { addToCart } = useCart(); // Use addToCart from cart context
+  const { addToCart } = useCart();
+  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
 
   if (!restaurant) {
     return (
@@ -59,7 +64,10 @@ const RestaurantDetail: React.FC = () => {
               <MapPin className="h-5 w-5 text-muted-foreground" />
               <span className="text-lg font-semibold">{restaurant.address}</span>
             </div>
-            <p className="col-span-full text-muted-foreground mt-2">{restaurant.description}</p>
+            <div className="md:col-span-full flex flex-col gap-2">
+              <p className="text-muted-foreground">{restaurant.description}</p>
+              <SocialShareButtons restaurantName={restaurant.name} />
+            </div>
           </CardContent>
         </Card>
 
@@ -82,9 +90,12 @@ const RestaurantDetail: React.FC = () => {
                       <span className="text-lg font-semibold">${item.price.toFixed(2)}</span>
                       <Button
                         className="rounded-lg bg-primary hover:bg-primary/90"
-                        onClick={() => addToCart(item)} // Add item to cart on click
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setIsCustomizationOpen(true);
+                        }}
                       >
-                        Add to Cart
+                        Customize & Add
                       </Button>
                     </div>
                   </div>
@@ -93,7 +104,35 @@ const RestaurantDetail: React.FC = () => {
             ))}
           </div>
         </section>
+
+        {/* Ratings & Reviews */}
+        <section>
+          <RatingsAndReviews restaurantId={restaurant.id} type="restaurant" />
+        </section>
       </div>
+
+      {selectedItem && (
+        <MenuItemCustomization
+          item={selectedItem}
+          isOpen={isCustomizationOpen}
+          onClose={() => {
+            setIsCustomizationOpen(false);
+            setSelectedItem(null);
+          }}
+          onAddToCart={(customizedItem: CustomizedMenuItem) => {
+            // Add base item with quantity
+            for (let i = 0; i < customizedItem.quantity; i++) {
+              addToCart({
+                id: `${selectedItem.id}-${i}`,
+                name: selectedItem.name,
+                price: customizedItem.price,
+                image: selectedItem.image,
+                description: selectedItem.description,
+              });
+            }
+          }}
+        />
+      )}
     </Layout>
   );
 };

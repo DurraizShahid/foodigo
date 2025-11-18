@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, Utensils, BookOpen, Users, Package } from "lucide-react";
+import { Home, Utensils, BookOpen, Users, Package, FileText, DollarSign, MessageSquare, BarChart3, Shield, Globe, Megaphone, FlaskConical, Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
@@ -14,6 +14,16 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ className }) => {
     { name: "Menu Items", icon: BookOpen, path: "/admin/menu-items" },
     { name: "Orders", icon: Package, path: "/admin/orders" },
     { name: "Users", icon: Users, path: "/admin/users" },
+    { name: "Content", icon: FileText, path: "/admin/content" },
+    { name: "Operations", icon: Package, path: "/admin/operations" },
+    { name: "Financial", icon: DollarSign, path: "/admin/financial" },
+    { name: "Ticketing", icon: MessageSquare, path: "/admin/ticketing" },
+    { name: "Analytics", icon: BarChart3, path: "/admin/analytics" },
+    { name: "Fraud", icon: Shield, path: "/admin/fraud" },
+    { name: "Cities", icon: Globe, path: "/admin/cities" },
+    { name: "Marketing", icon: Megaphone, path: "/admin/marketing" },
+    { name: "A/B Testing", icon: FlaskConical, path: "/admin/ab-testing" },
+    { name: "Fleet Management", icon: Truck, path: "/admin/fleet" },
   ];
 
   return (
