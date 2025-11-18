@@ -7,10 +7,12 @@ import { restaurants } from "@/data/dummyData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Clock, MapPin } from "lucide-react";
+import { useCart } from "@/context/CartContext"; // Import useCart
 
 const RestaurantDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const restaurant = restaurants.find((r) => r.id === id);
+  const { addToCart } = useCart(); // Use addToCart from cart context
 
   if (!restaurant) {
     return (
@@ -78,7 +80,10 @@ const RestaurantDetail: React.FC = () => {
                     <p className="text-muted-foreground text-sm">{item.description}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-lg font-semibold">${item.price.toFixed(2)}</span>
-                      <Button className="rounded-lg bg-primary hover:bg-primary/90">
+                      <Button
+                        className="rounded-lg bg-primary hover:bg-primary/90"
+                        onClick={() => addToCart(item)} // Add item to cart on click
+                      >
                         Add to Cart
                       </Button>
                     </div>

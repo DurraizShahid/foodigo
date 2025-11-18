@@ -5,8 +5,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import Dashboard from "./pages/admin/Dashboard"; // Import the Admin Dashboard
-import RestaurantDetail from "./pages/RestaurantDetail"; // Import the new RestaurantDetail page
+import Dashboard from "./pages/admin/Dashboard";
+import RestaurantDetail from "./pages/RestaurantDetail";
+import { CartProvider } from "./context/CartContext"; // Import CartProvider
 
 const queryClient = new QueryClient();
 
@@ -15,16 +16,18 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/restaurant/:id" element={<RestaurantDetail />} /> {/* New route for restaurant details */}
-          {/* Admin Routes */}
-          <Route path="/admin" element={<Dashboard />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <CartProvider> {/* Wrap BrowserRouter with CartProvider */}
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+            {/* Admin Routes */}
+            <Route path="/admin" element={<Dashboard />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </CartProvider>
     </TooltipProvider>
   </QueryClientProvider>
 );

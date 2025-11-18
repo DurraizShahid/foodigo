@@ -2,8 +2,11 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, ShoppingCart, User } from "lucide-react";
+import { useCart } from "@/context/CartContext"; // Import useCart
 
 const Header = () => {
+  const { totalItems } = useCart(); // Use totalItems from cart context
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
@@ -24,9 +27,11 @@ const Header = () => {
         <nav className="flex items-center space-x-4">
           <Button variant="ghost" size="icon" className="relative">
             <ShoppingCart className="h-5 w-5" />
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-              0
-            </span>
+            {totalItems > 0 && ( // Only show badge if there are items
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
+                {totalItems}
+              </span>
+            )}
           </Button>
           <Button variant="ghost" size="icon">
             <User className="h-5 w-5" />
