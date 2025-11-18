@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import Layout from "@/components/Layout";
 import { categories, restaurants } from "@/data/dummyData";
+import OfferCarousel from "@/components/OfferCarousel"; // Import the new component
 
 const Index = () => {
   return (
@@ -23,6 +24,12 @@ const Index = () => {
               Explore Restaurants
             </Button>
           </div>
+        </section>
+
+        {/* Offer Banners Section */}
+        <section className="text-center">
+          <h2 className="text-3xl font-bold mb-6 text-foreground">Special Offers</h2>
+          <OfferCarousel />
         </section>
 
         {/* Categories Section */}
