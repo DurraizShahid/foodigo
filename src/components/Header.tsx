@@ -11,8 +11,8 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container flex h-16 items-center justify-between">
         <Link to="/" className="flex items-center gap-2 text-lg font-bold text-primary">
-          <img src="/placeholder.svg" alt="Logo" className="h-8 w-8 rounded-full" />
-          <span>FoodFlow</span>
+          <img src="/logo.svg" alt="Foodigo Logo" className="h-8 w-8" />
+          <span>Foodigo</span>
         </Link>
 
         <div className="relative flex-1 max-w-md mx-4 hidden md:block">

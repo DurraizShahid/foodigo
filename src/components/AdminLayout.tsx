@@ -1,6 +1,5 @@
 import React from "react";
 import AdminSidebar from "./AdminSidebar";
-import { MadeWithDyad } from "./made-with-dyad";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -12,7 +11,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <AdminSidebar />
       <div className="flex flex-col flex-grow">
         <main className="flex-grow p-8">{children}</main>
-        <MadeWithDyad />
       </div>
     </div>
   );
