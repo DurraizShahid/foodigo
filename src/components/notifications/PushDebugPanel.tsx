@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { pushEventTemplates } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { toast } from "sonner";
 
 interface LogEntry {
@@ -15,9 +15,11 @@ interface LogEntry {
 }
 
 const PushDebugPanel: React.FC = () => {
+  const { pushEventTemplates } = useData();
   const [logs, setLogs] = useState<LogEntry[]>([]);
 
   useEffect(() => {
+    if (!pushEventTemplates.length) return;
     const interval = setInterval(() => {
       const template = pushEventTemplates[Math.floor(Math.random() * pushEventTemplates.length)];
       const entry: LogEntry = {
@@ -30,9 +32,10 @@ const PushDebugPanel: React.FC = () => {
       });
     }, 15000);
     return () => clearInterval(interval);
-  }, []);
+  }, [pushEventTemplates]);
 
   const handleTrigger = () => {
+    if (!pushEventTemplates.length) return;
     const template = pushEventTemplates[0];
     setLogs((prev) => [
       { ...template, timestamp: new Date().toLocaleTimeString() },

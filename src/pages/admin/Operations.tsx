@@ -4,12 +4,13 @@ import React from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { experiments, fraudAlerts, cityOperations, adminInsights } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
 const AdminOperations: React.FC = () => {
+  const { experiments, fraudAlerts, cityOperations, adminInsights } = useData();
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -43,7 +44,9 @@ const AdminOperations: React.FC = () => {
                 <div key={alert.id} className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <p className="font-semibold">{alert.type}</p>
-                    <Badge variant={alert.risk === "High" ? "destructive" : "secondary"}>{alert.risk}</Badge>
+                    <Badge variant={alert.risk.toLowerCase() === "high" ? "destructive" : "secondary"}>
+                      {alert.risk}
+                    </Badge>
                   </div>
                   <p className="text-sm text-muted-foreground">{alert.city}</p>
                   <Button variant="outline" size="sm" className="mt-2">
@@ -86,7 +89,7 @@ const AdminOperations: React.FC = () => {
                   <Label htmlFor={`toggle-${city.id}`} className="text-sm">
                     {city.status}
                   </Label>
-                  <Switch id={`toggle-${city.id}`} defaultChecked={city.status === "Online"} />
+                  <Switch id={`toggle-${city.id}`} defaultChecked={city.status.toLowerCase() === "online"} />
                 </div>
               </div>
             ))}

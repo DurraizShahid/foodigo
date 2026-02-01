@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { subscriptions } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { toast } from "sonner";
 
 interface SubscriptionStatusProps {
@@ -19,6 +19,7 @@ const tierBenefits: Record<string, string[]> = {
 };
 
 const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({ userId }) => {
+  const { subscriptions } = useData();
   const subscription = subscriptions.find((sub) => sub.userId === userId);
   const tier = subscription?.tier ?? "Free";
   const renewalText = subscription?.renewalDate ? `Renews on ${subscription.renewalDate}` : "Upgrade to unlock perks";

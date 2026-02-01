@@ -1,19 +1,24 @@
-# Tech Stack
+# AI Rules for Foodigo
 
-- You are building a React application.
-- Use TypeScript.
-- Use React Router. KEEP the routes in src/App.tsx
-- Always put source code in the src folder.
-- Put pages into src/pages/
-- Put components into src/components/
-- The main page (default page) is src/pages/Index.tsx
-- UPDATE the main page to include the new components. OTHERWISE, the user can NOT see any components!
-- ALWAYS try to use the shadcn/ui library.
-- Tailwind CSS: always use Tailwind CSS for styling components. Utilize Tailwind classes extensively for layout, spacing, colors, and other design aspects.
+This codebase is fully Supabase-backed. Do not introduce local mock or dummy datasets.
 
-Available packages and libraries:
+## Data and Supabase
+- Use `src/lib/supabaseClient.ts` for all Supabase access.
+- Centralized reads live in `src/context/DataContext.tsx`.
+- Order mutations live in `src/context/OrdersContext.tsx`.
+- Auth/profile logic lives in `src/context/AuthContext.tsx`.
 
-- The lucide-react package is installed for icons.
-- You ALREADY have ALL the shadcn/ui components and their dependencies installed. So you don't need to install them again.
-- You have ALL the necessary Radix UI components installed.
-- Use prebuilt components from the shadcn/ui library after importing them. Note that these files shouldn't be edited, so make new components if you need to change them.
+## Schema and migrations
+- Add schema changes in `supabase/migrations/` (new file per change).
+- Keep `supabase/seed.sql` up to date with any new fields or tables.
+- Update RLS when adding tables or changing ownership rules.
+
+## RLS expectations
+- Public catalog data can be anonymous readable.
+- User-owned data should be scoped to `auth.uid()`.
+- Admin-only data should be protected by `profiles.role = 'admin'`.
+
+## Working agreements
+- Avoid reintroducing `src/data/dummyData.ts` or inline mock arrays.
+- When adding new UI features, fetch data via `useData()` or a Supabase query.
+- Update `docs/supabase.md` and `docs/api.md` if you change the data model.

@@ -8,11 +8,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Layout from "@/components/Layout";
 import { DollarSign, MapPin, Clock, Package, Navigation, Phone, Flame, MessageCircle, User, Route, Zap, TrendingUp, Bike } from "lucide-react";
-import { orders, driverStats } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 const DriverDashboard: React.FC = () => {
+  const { orders, driverStats } = useData();
   const [isOnline, setIsOnline] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
 

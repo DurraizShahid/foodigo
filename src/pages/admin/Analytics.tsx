@@ -7,42 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Users, DollarSign, Package, BarChart3, Activity } from "lucide-react";
-import { adminInsights } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const Analytics: React.FC = () => {
-  const analyticsData = {
-    userGrowth: [
-      { month: "Jan", users: 5000, growth: 0 },
-      { month: "Feb", users: 6500, growth: 30 },
-      { month: "Mar", users: 8200, growth: 26 },
-      { month: "Apr", users: 10000, growth: 22 },
-      { month: "May", users: 12500, growth: 25 },
-    ],
-    orderTrends: [
-      { day: "Mon", orders: 1200, revenue: 33000 },
-      { day: "Tue", orders: 1350, revenue: 37500 },
-      { day: "Wed", orders: 1420, revenue: 39500 },
-      { day: "Thu", orders: 1480, revenue: 41000 },
-      { day: "Fri", orders: 1850, revenue: 51500 },
-      { day: "Sat", orders: 1650, revenue: 45800 },
-      { day: "Sun", orders: 1400, revenue: 38900 },
-    ],
-    topRestaurants: [
-      { name: "Pizza Palace", orders: 2450, revenue: 68000, rating: 4.8 },
-      { name: "Burger Joint", orders: 1890, revenue: 47250, rating: 4.6 },
-      { name: "Sushi House", orders: 1650, revenue: 49500, rating: 4.9 },
-      { name: "Taco Fiesta", orders: 1420, revenue: 28400, rating: 4.5 },
-    ],
-    customerSegments: [
-      { segment: "New Customers", count: 2500, percentage: 20 },
-      { segment: "Regular (1-5 orders)", count: 5000, percentage: 40 },
-      { segment: "Frequent (6-15 orders)", count: 3500, percentage: 28 },
-      { segment: "VIP (15+ orders)", count: 1500, percentage: 12 },
-    ],
-    retentionRate: 68,
-    churnRate: 12,
-    ltv: 125.50,
-  };
+  const { adminAnalytics } = useData();
 
   return (
     <AdminLayout>
@@ -57,7 +25,7 @@ const Analytics: React.FC = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analyticsData.retentionRate}%</div>
+              <div className="text-2xl font-bold">{adminAnalytics.retentionRate}%</div>
               <p className="text-xs text-muted-foreground">Customer retention</p>
             </CardContent>
           </Card>
@@ -68,7 +36,7 @@ const Analytics: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analyticsData.churnRate}%</div>
+              <div className="text-2xl font-bold">{adminAnalytics.churnRate}%</div>
               <p className="text-xs text-muted-foreground">Monthly churn</p>
             </CardContent>
           </Card>
@@ -79,7 +47,7 @@ const Analytics: React.FC = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${analyticsData.ltv}</div>
+              <div className="text-2xl font-bold">${adminAnalytics.ltv}</div>
               <p className="text-xs text-muted-foreground">Lifetime value</p>
             </CardContent>
           </Card>
@@ -112,7 +80,7 @@ const Analytics: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {analyticsData.userGrowth.map((item) => (
+                  {adminAnalytics.userGrowth.map((item) => (
                     <div key={item.month}>
                       <div className="flex justify-between mb-1">
                         <span className="text-sm font-medium">{item.month}</span>
@@ -155,7 +123,7 @@ const Analytics: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {analyticsData.orderTrends.map((item) => (
+                    {adminAnalytics.orderTrends.map((item) => (
                       <TableRow key={item.day}>
                         <TableCell className="font-medium">{item.day}</TableCell>
                         <TableCell>{item.orders.toLocaleString()}</TableCell>
@@ -186,7 +154,7 @@ const Analytics: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {analyticsData.topRestaurants.map((restaurant) => (
+                    {adminAnalytics.topRestaurants.map((restaurant) => (
                       <TableRow key={restaurant.name}>
                         <TableCell className="font-medium">{restaurant.name}</TableCell>
                         <TableCell>{restaurant.orders.toLocaleString()}</TableCell>
@@ -210,7 +178,7 @@ const Analytics: React.FC = () => {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {analyticsData.customerSegments.map((segment) => (
+                    {adminAnalytics.customerSegments.map((segment) => (
                     <div key={segment.segment}>
                       <div className="flex justify-between mb-1">
                         <span className="text-sm font-medium">{segment.segment}</span>

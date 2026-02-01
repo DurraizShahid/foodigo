@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Layout from "@/components/Layout";
-import { restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Clock, MapPin } from "lucide-react";
@@ -13,6 +13,7 @@ import { RatingsAndReviews } from "@/components/RatingsAndReviews";
 import SocialShareButtons from "@/components/SocialShareButtons";
 
 const RestaurantDetail: React.FC = () => {
+  const { restaurants } = useData();
   const { id } = useParams<{ id: string }>();
   const restaurant = restaurants.find((r) => r.id === id);
   const { addToCart } = useCart();

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FlaskConical, Plus, Play, Pause, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { experiments } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 interface Experiment {
   id: string;
@@ -34,56 +34,14 @@ interface Experiment {
 }
 
 const ABTesting: React.FC = () => {
-  const [experiments, setExperiments] = useState<Experiment[]>([
-    {
-      id: "EXP-001",
-      name: "New Homepage Layout",
-      description: "Testing new homepage design vs current",
-      feature: "Homepage",
-      variantA: "Control (Current)",
-      variantB: "New Design",
-      status: "running",
-      trafficSplit: 50,
-      participants: 5000,
-      variantAUsers: 2500,
-      variantBUsers: 2500,
-      variantAConversion: 12.5,
-      variantBConversion: 15.8,
-      startDate: "2025-01-15",
-    },
-    {
-      id: "EXP-002",
-      name: "Checkout Button Color",
-      description: "Testing green vs orange checkout button",
-      feature: "Checkout",
-      variantA: "Green Button",
-      variantB: "Orange Button",
-      status: "paused",
-      trafficSplit: 50,
-      participants: 3000,
-      variantAUsers: 1500,
-      variantBUsers: 1500,
-      variantAConversion: 18.2,
-      variantBConversion: 16.5,
-      startDate: "2025-01-10",
-    },
-    {
-      id: "EXP-003",
-      name: "Restaurant Card Layout",
-      description: "Testing card vs list view for restaurants",
-      feature: "Restaurant Listings",
-      status: "draft",
-      trafficSplit: 50,
-      participants: 0,
-      variantAUsers: 0,
-      variantBUsers: 0,
-      variantAConversion: 0,
-      variantBConversion: 0,
-      startDate: "",
-      variantA: "Card View",
-      variantB: "List View",
-    },
-  ]);
+  const { experiments: seededExperiments } = useData();
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
+
+  useEffect(() => {
+    if (!experiments.length && seededExperiments.length) {
+      setExperiments(seededExperiments as Experiment[]);
+    }
+  }, [experiments.length, seededExperiments]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({

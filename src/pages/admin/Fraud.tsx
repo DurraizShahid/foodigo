@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertTriangle, Shield, CheckCircle2, XCircle, Eye } from "lucide-react";
 import { toast } from "sonner";
-import { fraudAlerts } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 interface FraudAlert {
   id: string;
@@ -24,52 +24,14 @@ interface FraudAlert {
 }
 
 const Fraud: React.FC = () => {
-  const [alerts, setAlerts] = useState<FraudAlert[]>([
-    {
-      id: "FRAUD-001",
-      type: "Multiple Cards",
-      risk: "high",
-      orderId: "ORD-123",
-      userId: "user-456",
-      description: "User attempted to use 5 different payment cards in 1 hour",
-      detectedAt: "2025-01-28T10:30:00Z",
-      status: "new",
-      score: 85,
-    },
-    {
-      id: "FRAUD-002",
-      type: "Chargeback Spike",
-      risk: "medium",
-      orderId: "ORD-124",
-      userId: "user-789",
-      description: "Unusual pattern of chargebacks detected",
-      detectedAt: "2025-01-28T09:15:00Z",
-      status: "investigating",
-      score: 65,
-    },
-    {
-      id: "FRAUD-003",
-      type: "Suspicious Location",
-      risk: "critical",
-      orderId: "ORD-125",
-      userId: "user-321",
-      description: "Order placed from location inconsistent with user history",
-      detectedAt: "2025-01-28T11:00:00Z",
-      status: "new",
-      score: 95,
-    },
-    {
-      id: "FRAUD-004",
-      type: "Rapid Orders",
-      risk: "medium",
-      orderId: "ORD-126",
-      userId: "user-654",
-      description: "User placed 10 orders in 30 minutes",
-      detectedAt: "2025-01-27T15:45:00Z",
-      status: "resolved",
-      score: 55,
-    },
-  ]);
+  const { fraudAlerts } = useData();
+  const [alerts, setAlerts] = useState<FraudAlert[]>([]);
+
+  useEffect(() => {
+    if (!alerts.length && fraudAlerts.length) {
+      setAlerts(fraudAlerts as FraudAlert[]);
+    }
+  }, [alerts.length, fraudAlerts]);
 
   const handleUpdateStatus = (alertId: string, newStatus: FraudAlert["status"]) => {
     setAlerts(alerts.map((a) => (a.id === alertId ? { ...a, status: newStatus } : a)));

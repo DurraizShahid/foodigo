@@ -8,15 +8,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { DollarSign, Package, TrendingUp, Users, Plus, Edit, Trash2, Building, ClipboardList, Wallet, MessageCircle } from "lucide-react";
-import { orders, restaurants, restaurantAnalytics } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Link } from "react-router-dom";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 const RestaurantDashboard: React.FC = () => {
+  const { orders, restaurants, restaurantAnalytics } = useData();
   const restaurant = restaurants[0]; // In real app, get from auth context
-  const restaurantOrders = orders.filter((o) => o.restaurantId === restaurant.id);
+  const restaurantOrders = restaurant ? orders.filter((o) => o.restaurantId === restaurant.id) : [];
+
+  if (!restaurant) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto py-12 text-center">
+          <h1 className="text-3xl font-bold text-foreground mb-2">No restaurant found</h1>
+          <p className="text-muted-foreground">Connect a restaurant profile to view dashboard insights.</p>
+        </div>
+      </Layout>
+    );
+  }
 
   const totalEarnings = restaurantOrders.reduce((sum, order) => sum + order.total, 0);
   const todayEarnings = restaurantOrders.filter((o) => {

@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Search, Edit, Trash2, Eye, Mail } from "lucide-react";
-import { users, orders } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const Customers: React.FC = () => {
+  const { users, orders } = useData();
   const customersWithStats = users.map((user) => {
     const userOrders = orders.filter((o) => o.userId === user.id);
     const totalSpent = userOrders.reduce((sum, order) => sum + order.total, 0);

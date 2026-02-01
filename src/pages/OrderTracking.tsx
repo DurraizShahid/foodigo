@@ -7,10 +7,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { MapPin, Clock, CheckCircle2, Package, Truck, Home } from "lucide-react";
-import { orders, restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { toast } from "sonner";
 
 const OrderTracking: React.FC = () => {
+  const { orders, restaurants } = useData();
   const { id } = useParams<{ id: string }>();
   const order = orders.find((o) => o.id === id);
   const restaurant = order ? restaurants.find((r) => r.id === order.restaurantId) : null;

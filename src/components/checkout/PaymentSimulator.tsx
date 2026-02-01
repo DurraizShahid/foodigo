@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { paymentVault, paymentProviders } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
@@ -12,7 +12,14 @@ interface PaymentSimulatorProps {
 }
 
 const PaymentSimulator: React.FC<PaymentSimulatorProps> = ({ amount }) => {
-  const [selectedCard, setSelectedCard] = useState(paymentVault[0]?.id ?? "");
+  const { paymentVault, paymentProviders } = useData();
+  const [selectedCard, setSelectedCard] = useState("");
+
+  useEffect(() => {
+    if (!selectedCard && paymentVault.length) {
+      setSelectedCard(paymentVault[0].id);
+    }
+  }, [paymentVault, selectedCard]);
 
   const handleSimulate = () => {
     toast.success(`Simulated payment of $${amount.toFixed(2)} using ${selectedCard}`);

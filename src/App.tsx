@@ -48,6 +48,7 @@ import GroupOrdering from "./pages/GroupOrdering";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
 import { OrdersProvider } from "./context/OrdersContext";
+import { DataProvider } from "./context/DataContext";
 
 const queryClient = new QueryClient();
 
@@ -58,9 +59,10 @@ const App = () => (
       <Sonner />
       <AuthProvider>
         <CartProvider>
-          <OrdersProvider>
-            <BrowserRouter>
-              <Routes>
+          <DataProvider>
+            <OrdersProvider>
+              <BrowserRouter>
+                <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/restaurant/:id" element={<RestaurantDetail />} />
               <Route path="/cart" element={<Cart />} />
@@ -108,9 +110,10 @@ const App = () => (
               <Route path="/admin/fleet" element={<AdminFleetManagement />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
-              </Routes>
-            </BrowserRouter>
-          </OrdersProvider>
+                </Routes>
+              </BrowserRouter>
+            </OrdersProvider>
+          </DataProvider>
         </CartProvider>
       </AuthProvider>
     </TooltipProvider>

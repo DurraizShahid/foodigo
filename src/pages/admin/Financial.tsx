@@ -7,37 +7,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { DollarSign, TrendingUp, TrendingDown, Users, Building } from "lucide-react";
-import { adminInsights } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const Financial: React.FC = () => {
-  const financialData = {
-    totalRevenue: 1250000,
-    monthlyRevenue: 125000,
-    growth: 12.5,
-    totalOrders: 45000,
-    averageOrderValue: 27.78,
-    commission: 15,
-    platformFees: 3.5,
-    payouts: {
-      restaurants: 950000,
-      drivers: 200000,
-      total: 1150000,
-    },
-    netProfit: 100000,
-    profitMargin: 8,
-    revenueByCity: [
-      { city: "Cityville", revenue: 500000, orders: 18000, growth: 15 },
-      { city: "Townsville", revenue: 450000, orders: 16000, growth: 10 },
-      { city: "Villageton", revenue: 300000, orders: 11000, growth: 8 },
-    ],
-    monthlyBreakdown: [
-      { month: "Jan", revenue: 100000, profit: 8000 },
-      { month: "Feb", revenue: 110000, profit: 8800 },
-      { month: "Mar", revenue: 115000, profit: 9200 },
-      { month: "Apr", revenue: 120000, profit: 9600 },
-      { month: "May", revenue: 125000, profit: 10000 },
-    ],
-  };
+  const { adminFinancial } = useData();
 
   return (
     <AdminLayout>
@@ -52,10 +25,10 @@ const Financial: React.FC = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(financialData.totalRevenue / 1000).toFixed(0)}K</div>
+              <div className="text-2xl font-bold">${(adminFinancial.totalRevenue / 1000).toFixed(0)}K</div>
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <TrendingUp className="h-3 w-3" />
-                +{financialData.growth}% from last month
+                +{adminFinancial.growth}% from last month
               </p>
             </CardContent>
           </Card>
@@ -66,8 +39,8 @@ const Financial: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(financialData.netProfit / 1000).toFixed(0)}K</div>
-              <p className="text-xs text-muted-foreground">{financialData.profitMargin}% margin</p>
+              <div className="text-2xl font-bold">${(adminFinancial.netProfit / 1000).toFixed(0)}K</div>
+              <p className="text-xs text-muted-foreground">{adminFinancial.profitMargin}% margin</p>
             </CardContent>
           </Card>
 
@@ -77,7 +50,7 @@ const Financial: React.FC = () => {
               <Building className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(financialData.payouts.total / 1000).toFixed(0)}K</div>
+              <div className="text-2xl font-bold">${(adminFinancial.payouts.total / 1000).toFixed(0)}K</div>
               <p className="text-xs text-muted-foreground">Restaurants & Drivers</p>
             </CardContent>
           </Card>
@@ -88,7 +61,7 @@ const Financial: React.FC = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${financialData.averageOrderValue.toFixed(2)}</div>
+              <div className="text-2xl font-bold">${adminFinancial.averageOrderValue.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground">Per order</p>
             </CardContent>
           </Card>
@@ -110,7 +83,7 @@ const Financial: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {financialData.monthlyBreakdown.map((item) => (
+                    {adminFinancial.monthlyBreakdown.map((item) => (
                       <div key={item.month}>
                         <div className="flex justify-between mb-1">
                           <span className="text-sm font-medium">{item.month}</span>
@@ -121,7 +94,7 @@ const Financial: React.FC = () => {
                         <div className="w-full bg-muted rounded-full h-2">
                           <div
                             className="bg-primary h-2 rounded-full"
-                            style={{ width: `${(item.revenue / 125000) * 100}%` }}
+                            style={{ width: `${(item.revenue / (adminFinancial.monthlyRevenue || 1)) * 100}%` }}
                           />
                         </div>
                       </div>
@@ -136,7 +109,7 @@ const Financial: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {financialData.monthlyBreakdown.map((item) => (
+                    {adminFinancial.monthlyBreakdown.map((item) => (
                       <div key={item.month}>
                         <div className="flex justify-between mb-1">
                           <span className="text-sm font-medium">{item.month}</span>
@@ -147,7 +120,7 @@ const Financial: React.FC = () => {
                         <div className="w-full bg-muted rounded-full h-2">
                           <div
                             className="bg-green-500 h-2 rounded-full"
-                            style={{ width: `${(item.profit / 10000) * 100}%` }}
+                            style={{ width: `${(item.profit / ((adminFinancial.netProfit || 1) / 10)) * 100}%` }}
                           />
                         </div>
                       </div>
@@ -168,26 +141,26 @@ const Financial: React.FC = () => {
                 <div className="space-y-4">
                   <div>
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium">Commission ({financialData.commission}%)</span>
+                      <span className="text-sm font-medium">Commission ({adminFinancial.commission}%)</span>
                       <span className="text-sm text-muted-foreground">
-                        ${((financialData.totalRevenue * financialData.commission) / 100 / 1000).toFixed(0)}K
+                        ${((adminFinancial.totalRevenue * adminFinancial.commission) / 100 / 1000).toFixed(0)}K
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
-                      <div className="bg-primary h-2 rounded-full" style={{ width: `${financialData.commission}%` }} />
+                      <div className="bg-primary h-2 rounded-full" style={{ width: `${adminFinancial.commission}%` }} />
                     </div>
                   </div>
                   <div>
                     <div className="flex justify-between mb-1">
-                      <span className="text-sm font-medium">Platform Fees ({financialData.platformFees}%)</span>
+                      <span className="text-sm font-medium">Platform Fees ({adminFinancial.platformFees}%)</span>
                       <span className="text-sm text-muted-foreground">
-                        ${((financialData.totalRevenue * financialData.platformFees) / 100 / 1000).toFixed(0)}K
+                        ${((adminFinancial.totalRevenue * adminFinancial.platformFees) / 100 / 1000).toFixed(0)}K
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full"
-                        style={{ width: `${financialData.platformFees}%` }}
+                        style={{ width: `${adminFinancial.platformFees}%` }}
                       />
                     </div>
                   </div>
@@ -208,13 +181,13 @@ const Financial: React.FC = () => {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium">Restaurants</span>
                       <span className="text-sm text-muted-foreground">
-                        ${(financialData.payouts.restaurants / 1000).toFixed(0)}K
+                        ${(adminFinancial.payouts.restaurants / 1000).toFixed(0)}K
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-green-500 h-2 rounded-full"
-                        style={{ width: `${(financialData.payouts.restaurants / financialData.payouts.total) * 100}%` }}
+                        style={{ width: `${(adminFinancial.payouts.restaurants / (adminFinancial.payouts.total || 1)) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -222,13 +195,13 @@ const Financial: React.FC = () => {
                     <div className="flex justify-between mb-1">
                       <span className="text-sm font-medium">Drivers</span>
                       <span className="text-sm text-muted-foreground">
-                        ${(financialData.payouts.drivers / 1000).toFixed(0)}K
+                        ${(adminFinancial.payouts.drivers / 1000).toFixed(0)}K
                       </span>
                     </div>
                     <div className="w-full bg-muted rounded-full h-2">
                       <div
                         className="bg-blue-500 h-2 rounded-full"
-                        style={{ width: `${(financialData.payouts.drivers / financialData.payouts.total) * 100}%` }}
+                        style={{ width: `${(adminFinancial.payouts.drivers / (adminFinancial.payouts.total || 1)) * 100}%` }}
                       />
                     </div>
                   </div>
@@ -254,7 +227,7 @@ const Financial: React.FC = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {financialData.revenueByCity.map((city) => (
+                    {adminFinancial.revenueByCity.map((city) => (
                       <TableRow key={city.city}>
                         <TableCell className="font-medium">{city.city}</TableCell>
                         <TableCell>${(city.revenue / 1000).toFixed(0)}K</TableCell>

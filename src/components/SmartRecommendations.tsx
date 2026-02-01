@@ -2,11 +2,13 @@
 
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { smartCollections, restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 
 const SmartRecommendations: React.FC = () => {
+  const { smartCollections, restaurants } = useData();
+
   if (!smartCollections.length) return null;
 
   return (

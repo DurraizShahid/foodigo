@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,20 +11,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
 import { Building, Clock, MapPin, Phone, Mail, Globe, Save } from "lucide-react";
 import { toast } from "sonner";
-import { restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const RestaurantProfile: React.FC = () => {
+  const { restaurants } = useData();
   const restaurant = restaurants[0]; // In real app, get from auth context
   const [profile, setProfile] = useState({
-    name: restaurant.name,
-    description: restaurant.description,
-    address: restaurant.address,
+    name: "",
+    description: "",
+    address: "",
     phone: "+1 (555) 123-4567",
     email: "contact@pizzapalace.com",
     website: "https://pizzapalace.com",
-    cuisine: restaurant.cuisine,
+    cuisine: "",
     isOpen: true,
   });
+
+  useEffect(() => {
+    if (restaurant) {
+      setProfile((prev) => ({
+        ...prev,
+        name: restaurant.name,
+        description: restaurant.description,
+        address: restaurant.address,
+        cuisine: restaurant.cuisine,
+      }));
+    }
+  }, [restaurant]);
 
   const [hours, setHours] = useState({
     monday: { open: "09:00", close: "22:00", isOpen: true },

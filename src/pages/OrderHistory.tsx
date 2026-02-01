@@ -7,9 +7,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { Package, Clock, MapPin, ArrowRight } from "lucide-react";
-import { orders, restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const OrderHistory: React.FC = () => {
+  const { orders, restaurants } = useData();
   const getRestaurantName = (restaurantId: string) => {
     const restaurant = restaurants.find((r) => r.id === restaurantId);
     return restaurant?.name || "Unknown Restaurant";

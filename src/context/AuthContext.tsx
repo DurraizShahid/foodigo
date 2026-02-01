@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 interface User {
   id: string;
@@ -22,11 +23,6 @@ interface AuthContextType {
   supabase: SupabaseClient;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-key";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -34,16 +30,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadProfile = async (authUser: { id: string; email?: string | null; user_metadata?: any }) => {
+      const { data } = await supabase.from("profiles").select("*").eq("id", authUser.id).single();
+      if (data) {
+        setUser({
+          id: data.id,
+          email: data.email,
+          name: data.name ?? authUser.user_metadata?.name,
+          avatar: data.avatar_url ?? authUser.user_metadata?.avatar_url,
+          role: data.role ?? "customer",
+        });
+        return;
+      }
+
+      setUser({
+        id: authUser.id,
+        email: authUser.email || "",
+        name: authUser.user_metadata?.name,
+        avatar: authUser.user_metadata?.avatar_url,
+        role: authUser.user_metadata?.role || "customer",
+      });
+    };
+
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name,
-          avatar: session.user.user_metadata?.avatar_url,
-          role: session.user.user_metadata?.role || "customer",
-        });
+        loadProfile(session.user);
       }
       setLoading(false);
     });
@@ -53,13 +65,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name,
-          avatar: session.user.user_metadata?.avatar_url,
-          role: session.user.user_metadata?.role || "customer",
-        });
+        loadProfile(session.user);
       } else {
         setUser(null);
       }
@@ -83,6 +89,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) throw error;
     if (data.user) {
+      await supabase.from("profiles").upsert({
+        id: data.user.id,
+        email,
+        name: name || email.split("@")[0],
+        role: "customer",
+        avatar_url: data.user.user_metadata?.avatar_url ?? null,
+      });
       setUser({
         id: data.user.id,
         email: data.user.email || "",
@@ -100,12 +113,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) throw error;
     if (data.user) {
+      const { data: profile } = await supabase.from("profiles").select("*").eq("id", data.user.id).single();
       setUser({
         id: data.user.id,
         email: data.user.email || "",
-        name: data.user.user_metadata?.name,
-        avatar: data.user.user_metadata?.avatar_url,
-        role: data.user.user_metadata?.role || "customer",
+        name: profile?.name ?? data.user.user_metadata?.name,
+        avatar: profile?.avatar_url ?? data.user.user_metadata?.avatar_url,
+        role: profile?.role ?? data.user.user_metadata?.role || "customer",
       });
     }
   };
@@ -139,6 +153,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (error) throw error;
+
+    await supabase
+      .from("profiles")
+      .update({
+        name: updates.name ?? null,
+        avatar_url: updates.avatar ?? null,
+        role: updates.role ?? null,
+      })
+      .eq("id", user.id);
 
     setUser((prev) => (prev ? { ...prev, ...updates } : null));
   };

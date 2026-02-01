@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import Layout from "@/components/Layout";
-import { categories, restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import OfferCarousel from "@/components/OfferCarousel";
 import { RestaurantFilters, FilterState } from "@/components/RestaurantFilters";
 import RecommendedSection from "@/components/RecommendedSection";
@@ -12,6 +12,7 @@ import VoiceOrderingCard from "@/components/VoiceOrderingCard";
 import { useState, useMemo } from "react";
 
 const Index = () => {
+  const { categories, restaurants } = useData();
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     cuisine: "all",
@@ -60,7 +61,7 @@ const Index = () => {
     });
 
     return filtered;
-  }, [filters]);
+  }, [filters, restaurants]);
 
   return (
     <Layout>

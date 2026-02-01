@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MessageSquare, Plus, Search, User, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { adminInsights } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 interface Ticket {
   id: string;
@@ -31,54 +31,14 @@ interface Ticket {
 }
 
 const Ticketing: React.FC = () => {
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: "TICK-001",
-      subject: "Order #ORD123 Issue",
-      type: "Order Problem",
-      priority: "high",
-      status: "open",
-      assignedTo: "Agent A",
-      createdAt: "2025-01-28T10:00:00Z",
-      updatedAt: "2025-01-28T10:00:00Z",
-      customer: "user1@example.com",
-      description: "Order was delivered to wrong address",
-      messages: [
-        { sender: "Customer", message: "My order was delivered to the wrong address", timestamp: "2025-01-28T10:00:00Z" },
-      ],
-    },
-    {
-      id: "TICK-002",
-      subject: "Refund Request",
-      type: "Refund",
-      priority: "medium",
-      status: "in_progress",
-      assignedTo: "Agent B",
-      createdAt: "2025-01-27T14:30:00Z",
-      updatedAt: "2025-01-28T09:00:00Z",
-      customer: "user2@example.com",
-      description: "Requesting refund for cancelled order",
-      messages: [
-        { sender: "Customer", message: "I need a refund for order #ORD456", timestamp: "2025-01-27T14:30:00Z" },
-        { sender: "Agent B", message: "We're processing your refund request", timestamp: "2025-01-28T09:00:00Z" },
-      ],
-    },
-    {
-      id: "TICK-003",
-      subject: "Payment Issue",
-      type: "Payment",
-      priority: "urgent",
-      status: "open",
-      assignedTo: "Unassigned",
-      createdAt: "2025-01-28T11:00:00Z",
-      updatedAt: "2025-01-28T11:00:00Z",
-      customer: "user3@example.com",
-      description: "Payment was charged twice",
-      messages: [
-        { sender: "Customer", message: "I was charged twice for the same order", timestamp: "2025-01-28T11:00:00Z" },
-      ],
-    },
-  ]);
+  const { supportTickets } = useData();
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+
+  useEffect(() => {
+    if (!tickets.length && supportTickets.length) {
+      setTickets(supportTickets as Ticket[]);
+    }
+  }, [tickets.length, supportTickets]);
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [newMessage, setNewMessage] = useState("");

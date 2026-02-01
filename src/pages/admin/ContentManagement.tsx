@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,19 +12,33 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Image as ImageIcon, Star } from "lucide-react";
-import { restaurants, offers } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { toast } from "sonner";
 
 const ContentManagement: React.FC = () => {
-  const [banners, setBanners] = useState([
-    { id: "1", title: "Summer Special", image: offers[0].image, active: true, order: 1 },
-    { id: "2", title: "Free Delivery", image: offers[1].image, active: true, order: 2 },
-    { id: "3", title: "New Restaurant", image: offers[2].image, active: false, order: 3 },
-  ]);
-
-  const [featuredRestaurants, setFeaturedRestaurants] = useState(
-    restaurants.map((r, idx) => ({ ...r, featured: idx < 3, order: idx + 1 }))
+  const { restaurants, offers } = useData();
+  const [banners, setBanners] = useState<{ id: string; title: string; image: string; active: boolean; order: number }[]>(
+    []
   );
+  const [featuredRestaurants, setFeaturedRestaurants] = useState<(typeof restaurants[number] & { featured: boolean; order: number })[]>(
+    []
+  );
+
+  useEffect(() => {
+    if (!banners.length && offers.length >= 3) {
+      setBanners([
+        { id: "1", title: "Summer Special", image: offers[0].image, active: true, order: 1 },
+        { id: "2", title: "Free Delivery", image: offers[1].image, active: true, order: 2 },
+        { id: "3", title: "New Restaurant", image: offers[2].image, active: false, order: 3 },
+      ]);
+    }
+  }, [offers, banners.length]);
+
+  useEffect(() => {
+    if (!featuredRestaurants.length && restaurants.length) {
+      setFeaturedRestaurants(restaurants.map((r, idx) => ({ ...r, featured: idx < 3, order: idx + 1 })));
+    }
+  }, [restaurants, featuredRestaurants.length]);
 
   const handleToggleBanner = (id: string) => {
     setBanners(banners.map((b) => (b.id === id ? { ...b, active: !b.active } : b)));

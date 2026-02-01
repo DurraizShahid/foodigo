@@ -9,9 +9,11 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { offers } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const OfferCarousel: React.FC = () => {
+  const { offers } = useData();
+
   return (
     <Carousel
       opts={{

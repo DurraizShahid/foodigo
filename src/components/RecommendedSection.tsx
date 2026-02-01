@@ -4,10 +4,12 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { recommendationSeeds, restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { Sparkles } from "lucide-react";
 
 const RecommendedSection: React.FC = () => {
+  const { recommendationSeeds, restaurants } = useData();
+
   if (!recommendationSeeds.length) return null;
 
   return (

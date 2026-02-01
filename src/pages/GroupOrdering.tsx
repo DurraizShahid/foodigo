@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 import { useOrders } from "@/context/OrdersContext";
 import { useAuth } from "@/context/AuthContext";
 import { Copy, Users, Pizza, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 
 const GroupOrdering: React.FC = () => {
+  const { restaurants } = useData();
   const { groupOrders, createGroupOrder, addParticipantToGroup } = useOrders();
   const { user } = useAuth();
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState(restaurants[0]?.id ?? "");
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [participantName, setParticipantName] = useState(user?.name ?? "");
   const [participantItem, setParticipantItem] = useState("");
@@ -32,8 +33,14 @@ const GroupOrdering: React.FC = () => {
           {restaurant.name} · {restaurant.cuisine}
         </option>
       )),
-    []
+    [restaurants]
   );
+
+  useEffect(() => {
+    if (!selectedRestaurantId && restaurants.length) {
+      setSelectedRestaurantId(restaurants[0].id);
+    }
+  }, [restaurants, selectedRestaurantId]);
 
   const handleCreateGroup = () => {
     const restaurant = restaurants.find((r) => r.id === selectedRestaurantId);

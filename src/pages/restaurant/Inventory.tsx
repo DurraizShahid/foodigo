@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import Layout from "@/components/Layout";
 import { Package, AlertTriangle, CheckCircle2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 interface InventoryItem {
   id: string;
@@ -25,49 +25,14 @@ interface InventoryItem {
 }
 
 const Inventory: React.FC = () => {
-  const restaurant = restaurants[0];
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    {
-      id: "1",
-      name: "Margherita Pizza",
-      category: "Menu Items",
-      currentStock: 15,
-      minStock: 5,
-      unit: "servings",
-      autoOutOfStock: true,
-      lastUpdated: "2025-01-28T10:00:00Z",
-    },
-    {
-      id: "2",
-      name: "Pepperoni Pizza",
-      category: "Menu Items",
-      currentStock: 8,
-      minStock: 5,
-      unit: "servings",
-      autoOutOfStock: true,
-      lastUpdated: "2025-01-28T10:00:00Z",
-    },
-    {
-      id: "3",
-      name: "Mozzarella Cheese",
-      category: "Ingredients",
-      currentStock: 2,
-      minStock: 10,
-      unit: "kg",
-      autoOutOfStock: false,
-      lastUpdated: "2025-01-28T09:30:00Z",
-    },
-    {
-      id: "4",
-      name: "Tomato Sauce",
-      category: "Ingredients",
-      currentStock: 12,
-      minStock: 5,
-      unit: "liters",
-      autoOutOfStock: false,
-      lastUpdated: "2025-01-27T15:00:00Z",
-    },
-  ]);
+  const { inventoryItems } = useData();
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+
+  useEffect(() => {
+    if (!inventory.length && inventoryItems.length) {
+      setInventory(inventoryItems as InventoryItem[]);
+    }
+  }, [inventory.length, inventoryItems]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({

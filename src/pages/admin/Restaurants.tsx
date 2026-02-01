@@ -8,9 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
-import { restaurants } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const Restaurants: React.FC = () => {
+  const { restaurants } = useData();
   return (
     <AdminLayout>
       <div className="space-y-6">

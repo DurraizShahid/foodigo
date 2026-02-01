@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MapPin, Plus, Edit, Globe, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { cityOperations } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 interface City {
   id: string;
@@ -27,41 +27,14 @@ interface City {
 }
 
 const Cities: React.FC = () => {
-  const [cities, setCities] = useState<City[]>([
-    {
-      id: "city1",
-      name: "Cityville",
-      country: "USA",
-      status: "online",
-      surge: "low",
-      restaurants: 45,
-      drivers: 120,
-      orders: 1200,
-      revenue: 33000,
-    },
-    {
-      id: "city2",
-      name: "Townsville",
-      country: "USA",
-      status: "online",
-      surge: "medium",
-      restaurants: 38,
-      drivers: 95,
-      orders: 980,
-      revenue: 27200,
-    },
-    {
-      id: "city3",
-      name: "Villageton",
-      country: "USA",
-      status: "maintenance",
-      surge: "N/A",
-      restaurants: 25,
-      drivers: 60,
-      orders: 0,
-      revenue: 0,
-    },
-  ]);
+  const { cityOperations } = useData();
+  const [cities, setCities] = useState<City[]>([]);
+
+  useEffect(() => {
+    if (!cities.length && cityOperations.length) {
+      setCities(cityOperations as City[]);
+    }
+  }, [cities.length, cityOperations]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({

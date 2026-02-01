@@ -1,9 +1,10 @@
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Package, Utensils, Users, DollarSign, Activity, LifeBuoy } from "lucide-react";
-import { orders, restaurants, users, adminInsights } from "@/data/dummyData";
+import { useData } from "@/context/DataContext";
 
 const Dashboard = () => {
+  const { orders, restaurants, users, adminInsights } = useData();
   const totalOrders = orders.length;
   const totalRestaurants = restaurants.length;
   const totalUsers = users.length;
