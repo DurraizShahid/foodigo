@@ -73,58 +73,49 @@ const Dashboard = () => {
     };
   }, []);
 
+  const priorityStyles: Record<string, string> = {
+    high: "bg-rose-100 text-rose-700",
+    medium: "bg-amber-100 text-amber-700",
+    low: "bg-emerald-100 text-emerald-700",
+  };
+  const defaultPriorityStyle = "bg-slate-100 text-slate-700";
+
   return (
     <AdminLayout>
-      <h1 className="text-4xl font-bold mb-8 text-foreground">Admin Dashboard</h1>
+      <section className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">Performance snapshot</p>
+          <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
+          <p className="text-sm text-muted-foreground">
+            Monitor revenue, city operations, and support health in real time.
+          </p>
+        </div>
+      </section>
 
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="bg-card text-card-foreground shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-          </CardContent>
-        </Card>
+      <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Total Orders", value: totalOrders, meta: "+20.1% from last month", icon: Package },
+          { label: "Total Restaurants", value: totalRestaurants, meta: "+5 new this month", icon: Utensils },
+          { label: "Total Users", value: totalUsers, meta: "+15% from last month", icon: Users },
+          { label: "Total Revenue", value: `$${totalRevenue}`, meta: "+10% from last month", icon: DollarSign },
+        ].map((stat) => (
+          <Card key={stat.label} className="rounded-2xl border border-border/60 bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium">{stat.label}</CardTitle>
+              <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                <stat.icon className="h-4 w-4" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground">{stat.meta}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </section>
 
-        <Card className="bg-card text-card-foreground shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Restaurants</CardTitle>
-            <Utensils className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalRestaurants}</div>
-            <p className="text-xs text-muted-foreground">+5 new this month</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card text-card-foreground shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalUsers}</div>
-            <p className="text-xs text-muted-foreground">+15% from last month</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card text-card-foreground shadow-md">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${totalRevenue}</div>
-            <p className="text-xs text-muted-foreground">+10% from last month</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <Card className="bg-card text-card-foreground shadow-md">
+      <section className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
           <CardHeader className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
@@ -134,9 +125,9 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground">Month-to-date performance</p>
             </div>
           </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-4">
+          <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {adminInsights.revenue.map((point) => (
-              <div key={point.label} className="text-center">
+              <div key={point.label} className="rounded-xl border border-border/60 p-4 text-center">
                 <p className="text-sm text-muted-foreground">{point.label}</p>
                 <p className="text-xl font-semibold">${(point.value / 1000).toFixed(1)}k</p>
               </div>
@@ -144,13 +135,13 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="bg-card text-card-foreground shadow-md">
+        <Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
           <CardHeader>
             <CardTitle>City Breakdown</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {adminInsights.cityBreakdown.map((city) => (
-              <div key={city.city} className="flex items-center justify-between rounded-lg border p-3">
+              <div key={city.city} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
                 <div>
                   <p className="font-semibold">{city.city}</p>
                   <p className="text-xs text-muted-foreground">{city.restaurants} restaurants</p>
@@ -160,27 +151,39 @@ const Dashboard = () => {
             ))}
           </CardContent>
         </Card>
-      </div>
+      </section>
 
-      <div className="mt-8">
-        <h2 className="text-2xl font-bold mb-4 text-foreground">Support Tickets</h2>
-        <Card className="bg-card text-card-foreground shadow-md">
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-2xl font-bold text-foreground">Support Tickets</h2>
+        </div>
+        <Card className="rounded-2xl border border-border/60 bg-card shadow-sm">
           <CardContent className="p-6 space-y-3">
             {adminInsights.supportTickets.map((ticket) => (
-              <div key={ticket.id} className="flex items-center justify-between rounded-lg border p-3">
-                <div>
+              <div key={ticket.id} className="flex items-center justify-between rounded-xl border border-border/60 p-3">
+                <div className="space-y-1">
                   <p className="font-semibold">{ticket.type}</p>
-                  <p className="text-xs text-muted-foreground">Priority: {ticket.priority}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="rounded-full bg-muted px-3 py-1">{ticket.status}</span>
+                    <span
+                      className={[
+                        "rounded-full px-3 py-1",
+                        priorityStyles[ticket.priority] || defaultPriorityStyle,
+                      ].join(" ")}
+                    >
+                      {ticket.priority.toUpperCase()} priority
+                    </span>
+                  </div>
                 </div>
                 <CardTitle className="text-sm flex items-center gap-2">
                   <LifeBuoy className="h-4 w-4 text-primary" />
-                  {ticket.status}
+                  View
                 </CardTitle>
               </div>
             ))}
           </CardContent>
         </Card>
-      </div>
+      </section>
     </AdminLayout>
   );
 };

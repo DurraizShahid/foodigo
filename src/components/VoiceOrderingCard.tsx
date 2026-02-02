@@ -51,22 +51,24 @@ const VoiceOrderingCard: React.FC = () => {
   };
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
+    <Card className="overflow-hidden rounded-2xl border border-border/60 shadow-sm">
+      <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-1">
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             Voice Ordering
           </CardTitle>
           <CardDescription>Hands-free ordering powered by our assistant.</CardDescription>
         </div>
-        <Badge variant={isListening ? "default" : "secondary"}>{isListening ? "Listening..." : "Tap to speak"}</Badge>
+        <Badge variant={isListening ? "default" : "secondary"} className="rounded-full px-3 py-1">
+          {isListening ? "Listening..." : "Tap to speak"}
+        </Badge>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-xl border p-4 bg-muted/40 text-sm text-muted-foreground min-h-[80px]">
+        <div className="rounded-2xl border border-border/60 bg-muted/40 p-4 text-sm text-muted-foreground min-h-[88px]">
           {transcript}
         </div>
-        <Button size="lg" className="w-full" onClick={handleToggle}>
+        <Button size="lg" className="w-full rounded-full" onClick={handleToggle}>
           {isListening ? <MicOff className="h-4 w-4 mr-2" /> : <Mic className="h-4 w-4 mr-2" />}
           {isListening ? "Stop Listening" : "Start Voice Order"}
         </Button>

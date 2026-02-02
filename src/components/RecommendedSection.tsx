@@ -41,16 +41,19 @@ const RecommendedSection: React.FC = () => {
   }, {});
 
   return (
-    <section className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm uppercase text-muted-foreground tracking-wide">Personalized Picks</p>
-          <h2 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="h-6 w-6 text-primary" />
-            Recommended For You
-          </h2>
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-2">
+          <span className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-primary" />
+            Personalized Picks
+          </span>
+          <h2 className="text-3xl font-bold text-foreground">Recommended For You</h2>
+          <p className="text-sm text-muted-foreground">
+            Hand-picked lineups based on your cravings and recent activity.
+          </p>
         </div>
-        <Button variant="ghost" className="hidden md:inline-flex">
+        <Button variant="outline" className="hidden md:inline-flex rounded-full">
           Refresh
         </Button>
       </div>
@@ -59,24 +62,29 @@ const RecommendedSection: React.FC = () => {
           const matchedRestaurantIds = seedRestaurants.filter((link) => link.seed_id === seed.id).map((link) => link.restaurant_id);
           const matchedRestaurants = matchedRestaurantIds.map((id) => restaurantMap[id]).filter(Boolean);
           return (
-            <Card key={seed.id} className="overflow-hidden">
+            <Card key={seed.id} className="overflow-hidden rounded-2xl border border-border/60 shadow-sm">
               <CardContent className="p-0">
                 <div className="p-5 space-y-4">
-                  <div>
-                    <p className="text-xs uppercase text-muted-foreground tracking-wide">{seed.title}</p>
-                    <p className="text-lg font-semibold">{seed.description}</p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs uppercase text-muted-foreground tracking-wide">{seed.title}</p>
+                      <p className="text-lg font-semibold">{seed.description}</p>
+                    </div>
+                    <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                      Curated
+                    </span>
                   </div>
                   <div className="space-y-3">
                     {matchedRestaurants.map((restaurant) => (
                       <Link
                         to={`/restaurant/${restaurant.id}`}
                         key={restaurant.id}
-                        className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                        className="group flex items-center gap-3 rounded-xl border border-border/60 p-3 transition-colors hover:bg-muted/50"
                       >
                         <img
                           src={resolveImageUrl("restaurants", restaurant.image_path, restaurant.image_url)}
                           alt={restaurant.name}
-                          className="h-14 w-14 rounded-lg object-cover"
+                          className="h-14 w-14 rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                         <div className="flex-1">
                           <p className="font-semibold">{restaurant.name}</p>
@@ -84,6 +92,9 @@ const RecommendedSection: React.FC = () => {
                             {restaurant.cuisine} · {restaurant.rating} ⭐ · {restaurant.delivery_time}
                           </p>
                         </div>
+                        <span className="rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                          View
+                        </span>
                       </Link>
                     ))}
                   </div>

@@ -61,32 +61,34 @@ export const RestaurantFilters: React.FC<RestaurantFiltersProps> = ({ onFilterCh
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <div className="flex-1 relative">
-          <Input
-            placeholder="Search restaurants or dishes..."
-            value={filters.search}
-            onChange={(e) => handleFilterChange({ search: e.target.value })}
-            className="w-full"
-          />
-        </div>
-        <Button
-          variant="outline"
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-        </Button>
-      </div>
+      <Card className="rounded-2xl border border-border/60 shadow-sm">
+        <CardContent className="flex flex-wrap items-center gap-4 p-4">
+          <div className="flex-1 min-w-[220px]">
+            <Input
+              placeholder="Search restaurants or dishes..."
+              value={filters.search}
+              onChange={(e) => handleFilterChange({ search: e.target.value })}
+              className="w-full rounded-full border-border/60 bg-card"
+            />
+          </div>
+          <Button
+            variant="outline"
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 rounded-full"
+          >
+            <Filter className="h-4 w-4" />
+            {showFilters ? "Hide filters" : "Filters"}
+          </Button>
+        </CardContent>
+      </Card>
 
       {showFilters && (
-        <Card>
+        <Card className="rounded-2xl border border-border/60 shadow-sm">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <CardTitle>Filters</CardTitle>
               <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <Button variant="outline" size="sm" onClick={clearFilters} className="rounded-full">
                   Clear All
                 </Button>
                 <Button variant="ghost" size="icon" onClick={() => setShowFilters(false)}>
@@ -95,7 +97,7 @@ export const RestaurantFilters: React.FC<RestaurantFiltersProps> = ({ onFilterCh
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="grid gap-6 md:grid-cols-2">
             {/* Cuisine Filter */}
             <div className="space-y-2">
               <Label>Cuisine</Label>
@@ -150,11 +152,11 @@ export const RestaurantFilters: React.FC<RestaurantFiltersProps> = ({ onFilterCh
             </div>
 
             {/* Dietary Filters */}
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>Dietary Requirements</Label>
-              <div className="space-y-2">
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {dietaryOptions.map((option) => (
-                  <div key={option} className="flex items-center space-x-2">
+                  <div key={option} className="flex items-center space-x-2 rounded-lg border border-border/60 px-3 py-2">
                     <Checkbox
                       id={option}
                       checked={filters.dietary.includes(option)}
@@ -175,7 +177,7 @@ export const RestaurantFilters: React.FC<RestaurantFiltersProps> = ({ onFilterCh
             </div>
 
             {/* Sort By */}
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-2">
               <Label>Sort By</Label>
               <Select value={filters.sortBy} onValueChange={(value) => handleFilterChange({ sortBy: value })}>
                 <SelectTrigger>

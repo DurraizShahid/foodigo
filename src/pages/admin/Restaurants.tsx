@@ -7,33 +7,160 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
+import { showError, showSuccess } from "@/utils/toast";
+
+type RestaurantRow = {
+  id: string;
+  name: string;
+  cuisine: string | null;
+  rating: number | null;
+  image_path: string | null;
+  image_url: string | null;
+  address: string | null;
+  owner_id: string | null;
+  is_featured: boolean | null;
+  featured_order: number | null;
+  delivery_time: string | null;
+  price_range: string | null;
+  distance_km: number | null;
+  tags: string[] | null;
+  description: string | null;
+};
+
+type RestaurantFormState = {
+  id?: string;
+  name: string;
+  cuisine: string;
+  rating: string;
+  address: string;
+  owner_id: string;
+  image_path: string;
+  image_url: string;
+  is_featured: boolean;
+  featured_order: string;
+  delivery_time: string;
+  price_range: string;
+  distance_km: string;
+  tags: string;
+  description: string;
+};
+
+const emptyForm: RestaurantFormState = {
+  name: "",
+  cuisine: "",
+  rating: "0",
+  address: "",
+  owner_id: "",
+  image_path: "",
+  image_url: "",
+  is_featured: false,
+  featured_order: "",
+  delivery_time: "",
+  price_range: "",
+  distance_km: "",
+  tags: "",
+  description: "",
+};
 
 const Restaurants: React.FC = () => {
-  const [restaurants, setRestaurants] = useState<Array<{ id: string; name: string; cuisine: string; rating: number; image: string; address: string }>>([]);
+  const [restaurants, setRestaurants] = useState<
+    Array<{ id: string; name: string; cuisine: string; rating: number; image: string; address: string }>
+  >([]);
   const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [formValues, setFormValues] = useState<RestaurantFormState>(emptyForm);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  const normalizeNumber = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    const parsed = Number(trimmed);
+    return Number.isNaN(parsed) ? null : parsed;
+  };
+
+  const buildPayload = () => ({
+    name: formValues.name.trim(),
+    cuisine: formValues.cuisine.trim() || null,
+    rating: normalizeNumber(formValues.rating),
+    address: formValues.address.trim() || null,
+    owner_id: formValues.owner_id.trim() || null,
+    image_path: formValues.image_path.trim() || null,
+    image_url: formValues.image_url.trim() || null,
+    is_featured: formValues.is_featured,
+    featured_order: normalizeNumber(formValues.featured_order),
+    delivery_time: formValues.delivery_time.trim() || null,
+    price_range: formValues.price_range.trim() || null,
+    distance_km: normalizeNumber(formValues.distance_km),
+    tags: formValues.tags.trim()
+      ? formValues.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean)
+      : null,
+    description: formValues.description.trim() || null,
+  });
+
+  const fetchRestaurants = async () => {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select(
+        "id, name, cuisine, rating, image_path, image_url, address, owner_id, is_featured, featured_order, delivery_time, price_range, distance_km, tags, description"
+      )
+      .order("name");
+
+    if (error) {
+      showError("Failed to load restaurants.");
+      setLoading(false);
+      return;
+    }
+
+    setRestaurants(
+      (data as RestaurantRow[]).map((restaurant) => ({
+        id: restaurant.id,
+        name: restaurant.name,
+        cuisine: restaurant.cuisine || "",
+        rating: Number(restaurant.rating || 0),
+        address: restaurant.address || "",
+        image: resolveImageUrl("restaurants", restaurant.image_path, restaurant.image_url),
+      }))
+    );
+    setLoading(false);
+  };
 
   useEffect(() => {
     let active = true;
     const loadRestaurants = async () => {
-      const { data } = await supabase
-        .from("restaurants")
-        .select("id, name, cuisine, rating, image_path, image_url, address")
-        .order("name");
-      if (!active) return;
-      setRestaurants(
-        (data || []).map((restaurant) => ({
-          id: restaurant.id,
-          name: restaurant.name,
-          cuisine: restaurant.cuisine || "",
-          rating: Number(restaurant.rating || 0),
-          address: restaurant.address || "",
-          image: resolveImageUrl("restaurants", restaurant.image_path, restaurant.image_url),
-        }))
-      );
+      await fetchRestaurants();
     };
-    loadRestaurants();
+    if (active) {
+      loadRestaurants();
+    }
     return () => {
       active = false;
     };
@@ -49,12 +176,107 @@ const Restaurants: React.FC = () => {
         restaurant.address.toLowerCase().includes(normalized)
     );
   }, [restaurants, query]);
+
+  const openCreateForm = () => {
+    setFormMode("create");
+    setFormValues(emptyForm);
+    setFormError(null);
+    setFormOpen(true);
+  };
+
+  const openEditForm = async (restaurantId: string) => {
+    setFormMode("edit");
+    setFormError(null);
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select(
+        "id, name, cuisine, rating, image_path, image_url, address, owner_id, is_featured, featured_order, delivery_time, price_range, distance_km, tags, description"
+      )
+      .eq("id", restaurantId)
+      .single();
+
+    if (error || !data) {
+      showError("Unable to load restaurant details.");
+      return;
+    }
+
+    const restaurant = data as RestaurantRow;
+    setFormValues({
+      id: restaurant.id,
+      name: restaurant.name || "",
+      cuisine: restaurant.cuisine || "",
+      rating: restaurant.rating !== null ? String(restaurant.rating) : "",
+      address: restaurant.address || "",
+      owner_id: restaurant.owner_id || "",
+      image_path: restaurant.image_path || "",
+      image_url: restaurant.image_url || "",
+      is_featured: Boolean(restaurant.is_featured),
+      featured_order: restaurant.featured_order !== null ? String(restaurant.featured_order) : "",
+      delivery_time: restaurant.delivery_time || "",
+      price_range: restaurant.price_range || "",
+      distance_km: restaurant.distance_km !== null ? String(restaurant.distance_km) : "",
+      tags: restaurant.tags?.join(", ") || "",
+      description: restaurant.description || "",
+    });
+    setFormOpen(true);
+  };
+
+  const handleSave = async () => {
+    setFormError(null);
+    if (!formValues.name.trim()) {
+      setFormError("Name is required.");
+      return;
+    }
+
+    setSaving(true);
+    const payload = buildPayload();
+
+    if (formMode === "create") {
+      const { error } = await supabase.from("restaurants").insert(payload);
+      if (error) {
+        setFormError(error.message);
+        showError("Unable to create restaurant.");
+        setSaving(false);
+        return;
+      }
+      showSuccess("Restaurant created.");
+    } else {
+      const { error } = await supabase
+        .from("restaurants")
+        .update(payload)
+        .eq("id", formValues.id);
+      if (error) {
+        setFormError(error.message);
+        showError("Unable to update restaurant.");
+        setSaving(false);
+        return;
+      }
+      showSuccess("Restaurant updated.");
+    }
+
+    setSaving(false);
+    setFormOpen(false);
+    await fetchRestaurants();
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    const { error } = await supabase.from("restaurants").delete().eq("id", deleteTarget.id);
+    if (error) {
+      showError("Unable to delete restaurant.");
+      return;
+    }
+    showSuccess("Restaurant deleted.");
+    setDeleteTarget(null);
+    await fetchRestaurants();
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-4xl font-bold text-foreground">Restaurant Management</h1>
-          <Button>
+          <Button onClick={openCreateForm}>
             <Plus className="mr-2 h-4 w-4" />
             Add Restaurant
           </Button>
@@ -90,7 +312,22 @@ const Restaurants: React.FC = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredRestaurants.map((restaurant) => (
+                {loading && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-muted-foreground">
+                      Loading restaurants...
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading && filteredRestaurants.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-muted-foreground">
+                      No restaurants found.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {!loading &&
+                  filteredRestaurants.map((restaurant) => (
                   <TableRow key={restaurant.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -121,10 +358,14 @@ const Restaurants: React.FC = () => {
                         <Button variant="ghost" size="icon">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => openEditForm(restaurant.id)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteTarget({ id: restaurant.id, name: restaurant.name })}
+                        >
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -136,6 +377,157 @@ const Restaurants: React.FC = () => {
           </CardContent>
         </Card>
       </div>
+
+      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{formMode === "create" ? "Add Restaurant" : "Edit Restaurant"}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Name</label>
+              <Input
+                value={formValues.name}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, name: event.target.value }))}
+                placeholder="Restaurant name"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Cuisine</label>
+              <Input
+                value={formValues.cuisine}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, cuisine: event.target.value }))}
+                placeholder="Cuisine type"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Rating</label>
+              <Input
+                value={formValues.rating}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, rating: event.target.value }))}
+                type="number"
+                step="0.1"
+                min="0"
+                max="5"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Delivery time</label>
+              <Input
+                value={formValues.delivery_time}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, delivery_time: event.target.value }))}
+                placeholder="25-35 min"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Price range</label>
+              <Input
+                value={formValues.price_range}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, price_range: event.target.value }))}
+                placeholder="$$"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Distance (km)</label>
+              <Input
+                value={formValues.distance_km}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, distance_km: event.target.value }))}
+                type="number"
+                step="0.1"
+                min="0"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Address</label>
+              <Input
+                value={formValues.address}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, address: event.target.value }))}
+                placeholder="Street, city, country"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Tags (comma separated)</label>
+              <Input
+                value={formValues.tags}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, tags: event.target.value }))}
+                placeholder="Family friendly, Vegan, Fast delivery"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Description</label>
+              <Textarea
+                value={formValues.description}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, description: event.target.value }))}
+                placeholder="Short description"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image path</label>
+              <Input
+                value={formValues.image_path}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, image_path: event.target.value }))}
+                placeholder="placeholders/default.svg"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Image URL</label>
+              <Input
+                value={formValues.image_url}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, image_url: event.target.value }))}
+                placeholder="https://..."
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Owner ID</label>
+              <Input
+                value={formValues.owner_id}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, owner_id: event.target.value }))}
+                placeholder="UUID of restaurant owner"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Featured order</label>
+              <Input
+                value={formValues.featured_order}
+                onChange={(event) => setFormValues((prev) => ({ ...prev, featured_order: event.target.value }))}
+                type="number"
+                min="0"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                checked={formValues.is_featured}
+                onCheckedChange={(checked) => setFormValues((prev) => ({ ...prev, is_featured: checked }))}
+              />
+              <span className="text-sm">Featured</span>
+            </div>
+          </div>
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFormOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={Boolean(deleteTarget)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete restaurant?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove {deleteTarget?.name || "this restaurant"} and its related data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AdminLayout>
   );
 };
