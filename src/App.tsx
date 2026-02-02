@@ -21,6 +21,7 @@ import Drivers from "./pages/admin/Drivers";
 import Customers from "./pages/admin/Customers";
 import AdminOrders from "./pages/admin/Orders";
 import AdminMenuItems from "./pages/admin/MenuItems";
+import AdminCategories from "./pages/admin/Categories";
 import AdminOperations from "./pages/admin/Operations";
 import ContentManagement from "./pages/admin/ContentManagement";
 import AdminFinancial from "./pages/admin/Financial";
@@ -47,6 +48,7 @@ import DriverVehicleSelection from "./pages/driver/VehicleSelection";
 import DriverEarningsBoost from "./pages/driver/EarningsBoost";
 import ScheduledOrders from "./pages/ScheduledOrders";
 import GroupOrdering from "./pages/GroupOrdering";
+import Category from "./pages/Category";
 import { CartProvider } from "./context/CartContext";
 import { AuthProvider } from "./context/AuthContext";
 import { OrdersProvider } from "./context/OrdersContext";
@@ -71,6 +73,7 @@ const App = () => (
               <Route path="/orders/:id/track" element={<OrderTracking />} />
               <Route path="/orders/scheduled" element={<ScheduledOrders />} />
               <Route path="/group-order" element={<GroupOrdering />} />
+              <Route path="/category/:name" element={<Category />} />
               <Route path="/profile" element={<Profile />} />
               {/* Auth Routes */}
               <Route path="/auth/login" element={<Login />} />
@@ -99,6 +102,7 @@ const App = () => (
               <Route path="/admin/drivers" element={<Drivers />} />
               <Route path="/admin/users" element={<Customers />} />
               <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/categories" element={<AdminCategories />} />
               <Route path="/admin/menu-items" element={<AdminMenuItems />} />
               <Route path="/admin/content" element={<ContentManagement />} />
               <Route path="/admin/operations" element={<AdminOperations />} />

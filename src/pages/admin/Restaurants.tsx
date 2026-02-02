@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,7 @@ type RestaurantFormState = {
   distance_km: string;
   tags: string;
   description: string;
+  category_ids: string[];
 };
 
 const emptyForm: RestaurantFormState = {
@@ -81,6 +83,7 @@ const emptyForm: RestaurantFormState = {
   distance_km: "",
   tags: "",
   description: "",
+  category_ids: [],
 };
 
 const Restaurants: React.FC = () => {
@@ -95,6 +98,7 @@ const Restaurants: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [categories, setCategories] = useState<Array<{ id: string; name: string }>>([]);
 
   const normalizeNumber = (value: string) => {
     const trimmed = value.trim();
@@ -153,6 +157,15 @@ const Restaurants: React.FC = () => {
     setLoading(false);
   };
 
+  const fetchCategories = async () => {
+    const { data, error } = await supabase.from("categories").select("id, name").order("name");
+    if (error) {
+      showError("Failed to load categories.");
+      return;
+    }
+    setCategories((data || []) as Array<{ id: string; name: string }>);
+  };
+
   useEffect(() => {
     let active = true;
     const loadRestaurants = async () => {
@@ -160,6 +173,7 @@ const Restaurants: React.FC = () => {
     };
     if (active) {
       loadRestaurants();
+      fetchCategories();
     }
     return () => {
       active = false;
@@ -201,6 +215,11 @@ const Restaurants: React.FC = () => {
     }
 
     const restaurant = data as RestaurantRow;
+    const { data: categoryRows } = await supabase
+      .from("restaurant_categories")
+      .select("category_id")
+      .eq("restaurant_id", restaurantId);
+
     setFormValues({
       id: restaurant.id,
       name: restaurant.name || "",
@@ -217,6 +236,7 @@ const Restaurants: React.FC = () => {
       distance_km: restaurant.distance_km !== null ? String(restaurant.distance_km) : "",
       tags: restaurant.tags?.join(", ") || "",
       description: restaurant.description || "",
+      category_ids: (categoryRows || []).map((row) => row.category_id),
     });
     setFormOpen(true);
   };
@@ -232,12 +252,25 @@ const Restaurants: React.FC = () => {
     const payload = buildPayload();
 
     if (formMode === "create") {
-      const { error } = await supabase.from("restaurants").insert(payload);
+      const { data, error } = await supabase.from("restaurants").insert(payload).select("id").single();
       if (error) {
         setFormError(error.message);
         showError("Unable to create restaurant.");
         setSaving(false);
         return;
+      }
+      const newRestaurantId = data?.id;
+      if (newRestaurantId) {
+        const categoryInsert = formValues.category_ids.map((categoryId) => ({
+          restaurant_id: newRestaurantId,
+          category_id: categoryId,
+        }));
+        if (categoryInsert.length > 0) {
+          const { error: categoryError } = await supabase.from("restaurant_categories").insert(categoryInsert);
+          if (categoryError) {
+            showError("Restaurant created, but categories failed to save.");
+          }
+        }
       }
       showSuccess("Restaurant created.");
     } else {
@@ -250,6 +283,23 @@ const Restaurants: React.FC = () => {
         showError("Unable to update restaurant.");
         setSaving(false);
         return;
+      }
+      const restaurantId = formValues.id;
+      if (restaurantId) {
+        const { error: deleteError } = await supabase
+          .from("restaurant_categories")
+          .delete()
+          .eq("restaurant_id", restaurantId);
+        if (!deleteError && formValues.category_ids.length > 0) {
+          const categoryInsert = formValues.category_ids.map((categoryId) => ({
+            restaurant_id: restaurantId,
+            category_id: categoryId,
+          }));
+          const { error: categoryError } = await supabase.from("restaurant_categories").insert(categoryInsert);
+          if (categoryError) {
+            showError("Restaurant updated, but categories failed to save.");
+          }
+        }
       }
       showSuccess("Restaurant updated.");
     }
@@ -452,6 +502,35 @@ const Restaurants: React.FC = () => {
                 onChange={(event) => setFormValues((prev) => ({ ...prev, tags: event.target.value }))}
                 placeholder="Family friendly, Vegan, Fast delivery"
               />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <label className="text-sm font-medium">Categories</label>
+              <div className="grid gap-2 rounded-lg border border-border/60 p-3 md:grid-cols-2">
+                {categories.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No categories available.</p>
+                )}
+                {categories.map((category) => {
+                  const checked = formValues.category_ids.includes(category.id);
+                  return (
+                    <label key={category.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) =>
+                          setFormValues((prev) => ({
+                            ...prev,
+                            category_ids: value
+                              ? prev.category_ids.includes(category.id)
+                                ? prev.category_ids
+                                : [...prev.category_ids, category.id]
+                              : prev.category_ids.filter((id) => id !== category.id),
+                          }))
+                        }
+                      />
+                      <span>{category.name}</span>
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="space-y-2 md:col-span-2">
               <label className="text-sm font-medium">Description</label>
