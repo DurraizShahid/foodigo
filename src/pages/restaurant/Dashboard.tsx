@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,24 +8,169 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { DollarSign, Package, TrendingUp, Users, Plus, Edit, Trash2, Building, ClipboardList, Wallet, MessageCircle } from "lucide-react";
-import { orders, restaurants, restaurantAnalytics } from "@/data/dummyData";
 import { Link } from "react-router-dom";
 import { ChatWindow } from "@/components/chat/ChatWindow";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 const RestaurantDashboard: React.FC = () => {
-  const restaurant = restaurants[0]; // In real app, get from auth context
-  const restaurantOrders = orders.filter((o) => o.restaurantId === restaurant.id);
+  const { user } = useAuth();
+  const [restaurant, setRestaurant] = useState<{
+    id: string;
+    name: string;
+    rating: number;
+    image: string;
+  } | null>(null);
+  const [restaurantOrders, setRestaurantOrders] = useState<
+    Array<{
+      id: string;
+      total: number;
+      status: string;
+      createdAt: string;
+      items: Array<{ name: string; quantity: number }>;
+    }>
+  >([]);
+  const [menuItems, setMenuItems] = useState<Array<{ id: string; name: string; description: string; price: number; image: string }>>([]);
+  const [restaurantAnalytics, setRestaurantAnalytics] = useState<{
+    salesTrend: Array<{ label: string; value: number }>;
+    topItems: Array<{ name: string; orders: number; revenue: number }>;
+    payoutHistory: Array<{ id: string; amount: number; status: string; date: string }>;
+    inventory: Array<{ id: string; name: string; level: number; status: string }>;
+    profile: { restaurantName: string; phone: string; email: string; hours: string; prepTime: string };
+    promotions: Array<{ id: string; name: string; type: string; status: string; run: string }>;
+    customerInsights: { repeatCustomers: number; averageOrderValue: number };
+  }>({
+    salesTrend: [],
+    topItems: [],
+    payoutHistory: [],
+    inventory: [],
+    profile: { restaurantName: "", phone: "", email: "", hours: "", prepTime: "" },
+    promotions: [],
+    customerInsights: { repeatCustomers: 0, averageOrderValue: 0 },
+  });
 
-  const totalEarnings = restaurantOrders.reduce((sum, order) => sum + order.total, 0);
-  const todayEarnings = restaurantOrders.filter((o) => {
-    const orderDate = new Date(o.createdAt);
-    const today = new Date();
-    return orderDate.toDateString() === today.toDateString();
-  }).reduce((sum, order) => sum + order.total, 0);
+  useEffect(() => {
+    let active = true;
+    const loadRestaurant = async () => {
+      const { data: restaurants } = await supabase
+        .from("restaurants")
+        .select("id, name, rating, image_path, image_url")
+        .eq("owner_id", user?.id || "")
+        .limit(1);
 
-  const menuItems = restaurant.menu;
+      const fallback = !restaurants?.length
+        ? await supabase.from("restaurants").select("id, name, rating, image_path, image_url").limit(1)
+        : { data: restaurants };
+
+      const restaurantRow = (fallback.data || [])[0];
+      if (!active) return;
+      if (!restaurantRow) {
+        setRestaurant(null);
+        return;
+      }
+      setRestaurant({
+        id: restaurantRow.id,
+        name: restaurantRow.name,
+        rating: Number(restaurantRow.rating || 0),
+        image: resolveImageUrl("restaurants", restaurantRow.image_path, restaurantRow.image_url),
+      });
+    };
+    loadRestaurant();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    const loadDetails = async () => {
+      if (!restaurant) return;
+      const [{ data: orderRows }, { data: menuRows }, { data: analyticsRows }] = await Promise.all([
+        supabase
+          .from("orders")
+          .select("id, total, status, created_at, order_items(name, quantity)")
+          .eq("restaurant_id", restaurant.id)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("menu_items")
+          .select("id, name, description, price, image_path, image_url")
+          .eq("restaurant_id", restaurant.id),
+        supabase
+          .from("restaurant_analytics")
+          .select("sales_trend, top_items, payout_history, inventory, profile, promotions, customer_insights")
+          .eq("restaurant_id", restaurant.id)
+          .maybeSingle(),
+      ]);
+      if (!active) return;
+      setRestaurantOrders(
+        (orderRows || []).map((order) => ({
+          id: order.id,
+          total: Number(order.total),
+          status: order.status,
+          createdAt: order.created_at,
+          items: (order.order_items || []).map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+          })),
+        }))
+      );
+      setMenuItems(
+        (menuRows || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description || "",
+          price: Number(item.price),
+          image: resolveImageUrl("menu-items", item.image_path, item.image_url),
+        }))
+      );
+      setRestaurantAnalytics({
+        salesTrend: (analyticsRows?.sales_trend || []) as Array<{ label: string; value: number }>,
+        topItems: (analyticsRows?.top_items || []) as Array<{ name: string; orders: number; revenue: number }>,
+        payoutHistory: (analyticsRows?.payout_history || []) as Array<{ id: string; amount: number; status: string; date: string }>,
+        inventory: (analyticsRows?.inventory || []) as Array<{ id: string; name: string; level: number; status: string }>,
+        profile: (analyticsRows?.profile || { restaurantName: restaurant.name, phone: "", email: "", hours: "", prepTime: "" }) as {
+          restaurantName: string;
+          phone: string;
+          email: string;
+          hours: string;
+          prepTime: string;
+        },
+        promotions: (analyticsRows?.promotions || []) as Array<{ id: string; name: string; type: string; status: string; run: string }>,
+        customerInsights: (analyticsRows?.customer_insights || { repeatCustomers: 0, averageOrderValue: 0 }) as {
+          repeatCustomers: number;
+          averageOrderValue: number;
+        },
+      });
+    };
+    loadDetails();
+    return () => {
+      active = false;
+    };
+  }, [restaurant]);
+
+  const totalEarnings = useMemo(
+    () => restaurantOrders.reduce((sum, order) => sum + order.total, 0),
+    [restaurantOrders]
+  );
+  const todayEarnings = useMemo(() => {
+    const today = new Date().toDateString();
+    return restaurantOrders
+      .filter((order) => new Date(order.createdAt).toDateString() === today)
+      .reduce((sum, order) => sum + order.total, 0);
+  }, [restaurantOrders]);
+
+  if (!restaurant) {
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto text-center py-16">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Restaurant not found</h1>
+          <p className="text-muted-foreground">Link a restaurant profile to continue.</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

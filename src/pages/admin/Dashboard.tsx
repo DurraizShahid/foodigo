@@ -1,13 +1,77 @@
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Package, Utensils, Users, DollarSign, Activity, LifeBuoy } from "lucide-react";
-import { orders, restaurants, users, adminInsights } from "@/data/dummyData";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 const Dashboard = () => {
-  const totalOrders = orders.length;
-  const totalRestaurants = restaurants.length;
-  const totalUsers = users.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0).toFixed(2);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalRestaurants, setTotalRestaurants] = useState(0);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [totalRevenue, setTotalRevenue] = useState("0.00");
+  const [adminInsights, setAdminInsights] = useState<{
+    revenue: Array<{ label: string; value: number }>;
+    cityBreakdown: Array<{ city: string; restaurants: number; orders: number }>;
+    supportTickets: Array<{ id: string; type: string; status: string; priority: string }>;
+  }>({ revenue: [], cityBreakdown: [], supportTickets: [] });
+
+  useEffect(() => {
+    let active = true;
+    const loadData = async () => {
+      const [{ data: orderRows }, { data: restaurantRows }, { data: profileRows }, { data: cityRows }, { data: ticketRows }] =
+        await Promise.all([
+          supabase.from("orders").select("id, total, created_at"),
+          supabase.from("restaurants").select("id"),
+          supabase.from("profiles").select("id"),
+          supabase.from("city_operations").select("name, restaurants, orders").order("name"),
+          supabase.from("support_tickets").select("id, type, status, priority").order("updated_at", { ascending: false }).limit(6),
+        ]);
+
+      if (!active) return;
+
+      const orderTotal = (orderRows || []).reduce((sum, order) => sum + Number(order.total), 0);
+      const revenueByMonth = (orderRows || []).reduce<Record<string, number>>((acc, order) => {
+        const date = new Date(order.created_at);
+        const key = `${date.getFullYear()}-${date.getMonth()}`;
+        acc[key] = (acc[key] || 0) + Number(order.total || 0);
+        return acc;
+      }, {});
+      const monthLabels = Object.keys(revenueByMonth)
+        .map((key) => {
+          const [year, month] = key.split("-").map(Number);
+          return { key, year, month };
+        })
+        .sort((a, b) => (a.year - b.year) || (a.month - b.month))
+        .slice(-4)
+        .map(({ key, year, month }) => ({
+          label: new Date(year, month, 1).toLocaleString(undefined, { month: "short" }),
+          value: revenueByMonth[key] || 0,
+        }));
+      setTotalOrders(orderRows?.length || 0);
+      setTotalRestaurants(restaurantRows?.length || 0);
+      setTotalUsers(profileRows?.length || 0);
+      setTotalRevenue(orderTotal.toFixed(2));
+
+      setAdminInsights({
+        revenue: monthLabels,
+        cityBreakdown: (cityRows || []).map((city) => ({
+          city: city.name,
+          restaurants: city.restaurants || 0,
+          orders: city.orders || 0,
+        })),
+        supportTickets: (ticketRows || []).map((ticket) => ({
+          id: ticket.id,
+          type: ticket.type || "General",
+          status: ticket.status || "Open",
+          priority: ticket.priority || "low",
+        })),
+      });
+    };
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <AdminLayout>

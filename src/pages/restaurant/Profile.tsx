@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,18 +11,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Layout from "@/components/Layout";
 import { Building, Clock, MapPin, Phone, Mail, Globe, Save } from "lucide-react";
 import { toast } from "sonner";
-import { restaurants } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 const RestaurantProfile: React.FC = () => {
-  const restaurant = restaurants[0]; // In real app, get from auth context
+  const { user } = useAuth();
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [restaurantName, setRestaurantName] = useState("");
   const [profile, setProfile] = useState({
-    name: restaurant.name,
-    description: restaurant.description,
-    address: restaurant.address,
+    name: "",
+    description: "",
+    address: "",
     phone: "+1 (555) 123-4567",
     email: "contact@pizzapalace.com",
     website: "https://pizzapalace.com",
-    cuisine: restaurant.cuisine,
+    cuisine: "",
     isOpen: true,
   });
 
@@ -41,11 +44,100 @@ const RestaurantProfile: React.FC = () => {
     { id: "2", name: "Suburbs", radius: 10, fee: 4.99 },
   ]);
 
+  useEffect(() => {
+    let active = true;
+    const loadRestaurant = async () => {
+      const { data } = await supabase
+        .from("restaurants")
+        .select("id, name, description, address, cuisine")
+        .eq("owner_id", user?.id || "")
+        .limit(1);
+
+      const fallback = !data?.length
+        ? await supabase.from("restaurants").select("id, name, description, address, cuisine").limit(1)
+        : { data };
+
+      const row = fallback.data?.[0];
+      if (!active) return;
+      if (!row) return;
+      setRestaurantId(row.id);
+      setRestaurantName(row.name);
+      setProfile((prev) => ({
+        ...prev,
+        name: row.name,
+        description: row.description || "",
+        address: row.address || "",
+        cuisine: row.cuisine || "",
+      }));
+
+      const { data: analytics } = await supabase
+        .from("restaurant_analytics")
+        .select("profile")
+        .eq("restaurant_id", row.id)
+        .maybeSingle();
+
+      if (!active) return;
+      const profileData = analytics?.profile || {};
+      setProfile((prev) => ({
+        ...prev,
+        phone: profileData.phone || prev.phone,
+        email: profileData.email || prev.email,
+        website: profileData.website || prev.website,
+        isOpen: typeof profileData.isOpen === "boolean" ? profileData.isOpen : prev.isOpen,
+      }));
+      if (profileData.hours) setHours(profileData.hours);
+      if (profileData.deliveryZones) setDeliveryZones(profileData.deliveryZones);
+    };
+    loadRestaurant();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
   const handleSaveProfile = () => {
+    if (!restaurantId) return;
+    supabase
+      .from("restaurants")
+      .update({
+        name: profile.name,
+        description: profile.description,
+        address: profile.address,
+        cuisine: profile.cuisine,
+      })
+      .eq("id", restaurantId);
+    supabase
+      .from("restaurant_analytics")
+      .update({
+        profile: {
+          restaurantName: profile.name,
+          phone: profile.phone,
+          email: profile.email,
+          website: profile.website,
+          isOpen: profile.isOpen,
+          hours,
+          deliveryZones,
+        },
+      })
+      .eq("restaurant_id", restaurantId);
     toast.success("Profile updated successfully!");
   };
 
   const handleSaveHours = () => {
+    if (!restaurantId) return;
+    supabase
+      .from("restaurant_analytics")
+      .update({
+        profile: {
+          restaurantName: profile.name,
+          phone: profile.phone,
+          email: profile.email,
+          website: profile.website,
+          isOpen: profile.isOpen,
+          hours,
+          deliveryZones,
+        },
+      })
+      .eq("restaurant_id", restaurantId);
     toast.success("Operating hours updated!");
   };
 

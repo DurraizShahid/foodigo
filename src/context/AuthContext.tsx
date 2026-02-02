@@ -1,7 +1,8 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 
 interface User {
   id: string;
@@ -22,28 +23,58 @@ interface AuthContextType {
   supabase: SupabaseClient;
 }
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "https://placeholder.supabase.co";
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-key";
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+type AuthSession = Awaited<ReturnType<typeof supabase.auth.getSession>>["data"]["session"];
+type AuthSessionUser = NonNullable<AuthSession>["user"];
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadProfile = async (sessionUser: AuthSessionUser) => {
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, role")
+      .eq("id", sessionUser.id)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    if (!profile) {
+      const fallbackName = sessionUser.user_metadata?.name || sessionUser.email?.split("@")[0] || "User";
+      const { error: insertError } = await supabase.from("profiles").insert({
+        id: sessionUser.id,
+        full_name: fallbackName,
+        avatar_url: sessionUser.user_metadata?.avatar_url,
+        role: sessionUser.user_metadata?.role || "customer",
+      });
+      if (insertError) throw insertError;
+      return {
+        id: sessionUser.id,
+        email: sessionUser.email || "",
+        name: fallbackName,
+        avatar: sessionUser.user_metadata?.avatar_url,
+        role: sessionUser.user_metadata?.role || "customer",
+      } as User;
+    }
+
+    return {
+      id: sessionUser.id,
+      email: sessionUser.email || "",
+      name: profile.full_name || sessionUser.user_metadata?.name,
+      avatar: profile.avatar_url || sessionUser.user_metadata?.avatar_url,
+      role: (profile.role as User["role"]) || "customer",
+    } as User;
+  };
+
   useEffect(() => {
     // Check active session
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name,
-          avatar: session.user.user_metadata?.avatar_url,
-          role: session.user.user_metadata?.role || "customer",
-        });
+        loadProfile(session.user)
+          .then(setUser)
+          .catch(() => setUser(null));
       }
       setLoading(false);
     });
@@ -53,16 +84,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
-        setUser({
-          id: session.user.id,
-          email: session.user.email || "",
-          name: session.user.user_metadata?.name,
-          avatar: session.user.user_metadata?.avatar_url,
-          role: session.user.user_metadata?.role || "customer",
-        });
-      } else {
-        setUser(null);
+        loadProfile(session.user)
+          .then(setUser)
+          .catch(() => setUser(null))
+          .finally(() => setLoading(false));
+        return;
       }
+      setUser(null);
       setLoading(false);
     });
 
@@ -83,12 +111,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) throw error;
     if (data.user) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email || "",
-        name: name || email.split("@")[0],
-        role: "customer",
-      });
+      const profileUser = await loadProfile(data.user);
+      setUser(profileUser);
     }
   };
 
@@ -100,13 +124,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (error) throw error;
     if (data.user) {
-      setUser({
-        id: data.user.id,
-        email: data.user.email || "",
-        name: data.user.user_metadata?.name,
-        avatar: data.user.user_metadata?.avatar_url,
-        role: data.user.user_metadata?.role || "customer",
-      });
+      const profileUser = await loadProfile(data.user);
+      setUser(profileUser);
     }
   };
 
@@ -130,13 +149,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const updateProfile = async (updates: Partial<User>) => {
     if (!user) return;
 
-    const { error } = await supabase.auth.updateUser({
-      data: {
-        name: updates.name,
-        avatar: updates.avatar,
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: updates.name,
+        avatar_url: updates.avatar,
         role: updates.role,
-      },
-    });
+      })
+      .eq("id", user.id);
 
     if (error) throw error;
 

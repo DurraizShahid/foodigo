@@ -9,9 +9,30 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { offers } from "@/data/dummyData";
+import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
 
 const OfferCarousel: React.FC = () => {
+  const [offers, setOffers] = React.useState<
+    Array<{ id: string; title: string; description: string | null; image_path: string | null; image_url: string | null }>
+  >([]);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadOffers = async () => {
+      const { data } = await supabase
+        .from("offers")
+        .select("id, title, description, image_path, image_url")
+        .eq("active", true)
+        .order("display_order", { ascending: true });
+      if (!active) return;
+      setOffers(data || []);
+    };
+    loadOffers();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <Carousel
       opts={{
@@ -27,7 +48,7 @@ const OfferCarousel: React.FC = () => {
               <Card className="overflow-hidden rounded-xl shadow-md">
                 <CardContent className="flex aspect-video items-center justify-center p-0 relative">
                   <img
-                    src={offer.image}
+                    src={resolveImageUrl("restaurants", offer.image_path, offer.image_url)}
                     alt={offer.title}
                     className="w-full h-full object-cover"
                   />

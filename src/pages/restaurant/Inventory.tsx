@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import Layout from "@/components/Layout";
 import { Package, AlertTriangle, CheckCircle2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { restaurants } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 interface InventoryItem {
   id: string;
@@ -25,49 +26,9 @@ interface InventoryItem {
 }
 
 const Inventory: React.FC = () => {
-  const restaurant = restaurants[0];
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    {
-      id: "1",
-      name: "Margherita Pizza",
-      category: "Menu Items",
-      currentStock: 15,
-      minStock: 5,
-      unit: "servings",
-      autoOutOfStock: true,
-      lastUpdated: "2025-01-28T10:00:00Z",
-    },
-    {
-      id: "2",
-      name: "Pepperoni Pizza",
-      category: "Menu Items",
-      currentStock: 8,
-      minStock: 5,
-      unit: "servings",
-      autoOutOfStock: true,
-      lastUpdated: "2025-01-28T10:00:00Z",
-    },
-    {
-      id: "3",
-      name: "Mozzarella Cheese",
-      category: "Ingredients",
-      currentStock: 2,
-      minStock: 10,
-      unit: "kg",
-      autoOutOfStock: false,
-      lastUpdated: "2025-01-28T09:30:00Z",
-    },
-    {
-      id: "4",
-      name: "Tomato Sauce",
-      category: "Ingredients",
-      currentStock: 12,
-      minStock: 5,
-      unit: "liters",
-      autoOutOfStock: false,
-      lastUpdated: "2025-01-27T15:00:00Z",
-    },
-  ]);
+  const { user } = useAuth();
+  const [restaurantId, setRestaurantId] = useState<string | null>(null);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -79,6 +40,52 @@ const Inventory: React.FC = () => {
     autoOutOfStock: true,
   });
 
+  useEffect(() => {
+    let active = true;
+    const loadRestaurant = async () => {
+      const { data } = await supabase.from("restaurants").select("id").eq("owner_id", user?.id || "").limit(1);
+      const fallback = !data?.length ? await supabase.from("restaurants").select("id").limit(1) : { data };
+      if (!active) return;
+      setRestaurantId(fallback.data?.[0]?.id || null);
+    };
+    loadRestaurant();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    const loadInventory = async () => {
+      if (!restaurantId) {
+        setInventory([]);
+        return;
+      }
+      const { data } = await supabase
+        .from("inventory_items")
+        .select("id, name, category, current_stock, min_stock, unit, auto_out_of_stock, last_updated")
+        .eq("restaurant_id", restaurantId)
+        .order("name");
+      if (!active) return;
+      setInventory(
+        (data || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          category: item.category || "",
+          currentStock: item.current_stock,
+          minStock: item.min_stock,
+          unit: item.unit || "",
+          autoOutOfStock: item.auto_out_of_stock,
+          lastUpdated: item.last_updated,
+        }))
+      );
+    };
+    loadInventory();
+    return () => {
+      active = false;
+    };
+  }, [restaurantId]);
+
   const handleUpdateStock = (id: string, newStock: number) => {
     setInventory(
       inventory.map((item) =>
@@ -87,6 +94,7 @@ const Inventory: React.FC = () => {
           : item
       )
     );
+    supabase.from("inventory_items").update({ current_stock: newStock, last_updated: new Date().toISOString() }).eq("id", id);
     toast.success("Stock updated!");
   };
 
@@ -94,6 +102,10 @@ const Inventory: React.FC = () => {
     setInventory(
       inventory.map((item) => (item.id === id ? { ...item, autoOutOfStock: !item.autoOutOfStock } : item))
     );
+    const item = inventory.find((entry) => entry.id === id);
+    if (item) {
+      supabase.from("inventory_items").update({ auto_out_of_stock: !item.autoOutOfStock }).eq("id", id);
+    }
     toast.success("Auto out-of-stock setting updated");
   };
 
@@ -108,6 +120,19 @@ const Inventory: React.FC = () => {
       lastUpdated: new Date().toISOString(),
     };
     setInventory([...inventory, newItem]);
+    if (restaurantId) {
+      supabase.from("inventory_items").insert({
+        id: newItem.id,
+        restaurant_id: restaurantId,
+        name: newItem.name,
+        category: newItem.category,
+        current_stock: newItem.currentStock,
+        min_stock: newItem.minStock,
+        unit: newItem.unit,
+        auto_out_of_stock: newItem.autoOutOfStock,
+        last_updated: newItem.lastUpdated,
+      });
+    }
     setFormData({
       name: "",
       category: "Menu Items",

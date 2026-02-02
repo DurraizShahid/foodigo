@@ -3,15 +3,83 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import Layout from "@/components/Layout";
-import { categories, restaurants } from "@/data/dummyData";
 import OfferCarousel from "@/components/OfferCarousel";
 import { RestaurantFilters, FilterState } from "@/components/RestaurantFilters";
 import RecommendedSection from "@/components/RecommendedSection";
 import SmartRecommendations from "@/components/SmartRecommendations";
 import VoiceOrderingCard from "@/components/VoiceOrderingCard";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
 
 const Index = () => {
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; image: string }>>([]);
+  const [restaurants, setRestaurants] = useState<
+    Array<{
+      id: string;
+      name: string;
+      cuisine: string;
+      rating: number;
+      deliveryTime: string;
+      priceRange: string;
+      distanceKm: number;
+      tags: string[];
+      image: string;
+      description: string;
+      address: string;
+      menu: Array<{ id: string; name: string; price: number; calories: number | null; description: string; image: string }>;
+    }>
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadData = async () => {
+      const [{ data: categoryRows }, { data: restaurantRows }] = await Promise.all([
+        supabase.from("categories").select("id, name, image_path, image_url").order("name"),
+        supabase
+          .from("restaurants")
+          .select("id, name, cuisine, rating, delivery_time, price_range, distance_km, tags, image_path, image_url, description, address, menu_items(id, name, price, calories, description, image_path, image_url)")
+          .order("rating", { ascending: false }),
+      ]);
+
+      if (!active) return;
+
+      setCategories(
+        (categoryRows || []).map((category) => ({
+          id: category.id,
+          name: category.name,
+          image: resolveImageUrl("restaurants", category.image_path, category.image_url),
+        }))
+      );
+
+      setRestaurants(
+        (restaurantRows || []).map((restaurant) => ({
+          id: restaurant.id,
+          name: restaurant.name,
+          cuisine: restaurant.cuisine || "",
+          rating: Number(restaurant.rating || 0),
+          deliveryTime: restaurant.delivery_time || "",
+          priceRange: restaurant.price_range || "",
+          distanceKm: Number(restaurant.distance_km || 0),
+          tags: restaurant.tags || [],
+          image: resolveImageUrl("restaurants", restaurant.image_path, restaurant.image_url),
+          description: restaurant.description || "",
+          address: restaurant.address || "",
+          menu: (restaurant.menu_items || []).map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: Number(item.price),
+            calories: item.calories,
+            description: item.description || "",
+            image: resolveImageUrl("menu-items", item.image_path, item.image_url),
+          })),
+        }))
+      );
+    };
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, []);
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     cuisine: "all",
@@ -60,7 +128,7 @@ const Index = () => {
     });
 
     return filtered;
-  }, [filters]);
+  }, [filters, restaurants]);
 
   return (
     <Layout>

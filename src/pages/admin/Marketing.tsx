@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Megaphone, Plus, Edit, Trash2, Search, TrendingUp, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Campaign {
   id: string;
@@ -31,50 +32,15 @@ interface Campaign {
 }
 
 const Marketing: React.FC = () => {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([
-    {
-      id: "CAMP-001",
-      name: "Summer Food Festival",
-      type: "banner",
-      status: "active",
-      targetAudience: "All Users",
-      startDate: "2025-06-01",
-      endDate: "2025-08-31",
-      budget: 10000,
-      spent: 3500,
-      impressions: 125000,
-      clicks: 8500,
-      conversions: 1200,
-    },
-    {
-      id: "CAMP-002",
-      name: "New User Welcome",
-      type: "email",
-      status: "active",
-      targetAudience: "New Users",
-      startDate: "2025-01-01",
-      endDate: "2025-12-31",
-      budget: 5000,
-      spent: 1200,
-      impressions: 45000,
-      clicks: 3200,
-      conversions: 850,
-    },
-    {
-      id: "CAMP-003",
-      name: "Weekend Special Push",
-      type: "push",
-      status: "paused",
-      targetAudience: "Active Users",
-      startDate: "2025-01-20",
-      endDate: "2025-02-20",
-      budget: 3000,
-      spent: 1800,
-      impressions: 65000,
-      clicks: 4200,
-      conversions: 650,
-    },
-  ]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [seoMetrics, setSeoMetrics] = useState<{
+    id: string;
+    keyword: string;
+    searchRank: number;
+    organicGrowth: number;
+    backlinks: number;
+    updatedAt: string;
+  } | null>(null);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -86,7 +52,58 @@ const Marketing: React.FC = () => {
     budget: 0,
   });
 
-  const handleCreateCampaign = () => {
+  useEffect(() => {
+    let active = true;
+    const loadCampaigns = async () => {
+      const [{ data: campaignRows }, { data: metricsRows }] = await Promise.all([
+        supabase
+          .from("marketing_campaigns")
+          .select("id, name, type, status, target_audience, start_date, end_date, budget, spent, impressions, clicks, conversions")
+          .order("start_date", { ascending: false }),
+        supabase
+          .from("marketing_metrics")
+          .select("id, keyword, search_rank, organic_growth, backlinks, updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(1),
+      ]);
+      if (!active) return;
+      setCampaigns(
+        (campaignRows || []).map((campaign) => ({
+          id: campaign.id,
+          name: campaign.name,
+          type: campaign.type as Campaign["type"],
+          status: campaign.status as Campaign["status"],
+          targetAudience: campaign.target_audience || "",
+          startDate: campaign.start_date || "",
+          endDate: campaign.end_date || "",
+          budget: Number(campaign.budget || 0),
+          spent: Number(campaign.spent || 0),
+          impressions: Number(campaign.impressions || 0),
+          clicks: Number(campaign.clicks || 0),
+          conversions: Number(campaign.conversions || 0),
+        }))
+      );
+      const metrics = metricsRows?.[0];
+      setSeoMetrics(
+        metrics
+          ? {
+              id: metrics.id,
+              keyword: metrics.keyword || "food delivery",
+              searchRank: metrics.search_rank || 0,
+              organicGrowth: Number(metrics.organic_growth || 0),
+              backlinks: metrics.backlinks || 0,
+              updatedAt: metrics.updated_at || "",
+            }
+          : null
+      );
+    };
+    loadCampaigns();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleCreateCampaign = async () => {
     if (!formData.name || !formData.startDate || !formData.endDate) {
       toast.error("Please fill in all required fields");
       return;
@@ -100,7 +117,25 @@ const Marketing: React.FC = () => {
       clicks: 0,
       conversions: 0,
     };
-    setCampaigns([...campaigns, newCampaign]);
+    const { error } = await supabase.from("marketing_campaigns").insert({
+      id: newCampaign.id,
+      name: newCampaign.name,
+      type: newCampaign.type,
+      status: newCampaign.status,
+      target_audience: newCampaign.targetAudience,
+      start_date: newCampaign.startDate || null,
+      end_date: newCampaign.endDate || null,
+      budget: newCampaign.budget,
+      spent: newCampaign.spent,
+      impressions: newCampaign.impressions,
+      clicks: newCampaign.clicks,
+      conversions: newCampaign.conversions,
+    }).select().maybeSingle();
+    if (error) {
+      toast.error("Failed to create campaign");
+      return;
+    }
+    setCampaigns((prev) => [...prev, newCampaign]);
     setFormData({
       name: "",
       type: "email",
@@ -113,17 +148,17 @@ const Marketing: React.FC = () => {
     toast.success("Campaign created!");
   };
 
-  const handleToggleStatus = (campaignId: string) => {
-    setCampaigns(
-      campaigns.map((c) => {
-        if (c.id === campaignId) {
-          const newStatus =
-            c.status === "active" ? "paused" : c.status === "paused" ? "active" : c.status;
-          return { ...c, status: newStatus };
-        }
-        return c;
-      })
-    );
+  const handleToggleStatus = async (campaignId: string) => {
+    const target = campaigns.find((c) => c.id === campaignId);
+    if (!target) return;
+    const newStatus = target.status === "active" ? "paused" : target.status === "paused" ? "active" : target.status;
+    setCampaigns((prev) => prev.map((c) => (c.id === campaignId ? { ...c, status: newStatus } : c)));
+    const { error } = await supabase.from("marketing_campaigns").update({ status: newStatus }).eq("id", campaignId);
+    if (error) {
+      toast.error("Failed to update campaign");
+      setCampaigns((prev) => prev.map((c) => (c.id === campaignId ? target : c)));
+      return;
+    }
     toast.success("Campaign status updated");
   };
 
@@ -142,10 +177,48 @@ const Marketing: React.FC = () => {
     }
   };
 
-  const totalSpent = campaigns.reduce((sum, c) => sum + c.spent, 0);
-  const totalBudget = campaigns.reduce((sum, c) => sum + c.budget, 0);
-  const totalImpressions = campaigns.reduce((sum, c) => sum + c.impressions, 0);
-  const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
+  const totals = useMemo(() => {
+    const totalSpent = campaigns.reduce((sum, c) => sum + c.spent, 0);
+    const totalBudget = campaigns.reduce((sum, c) => sum + c.budget, 0);
+    const totalImpressions = campaigns.reduce((sum, c) => sum + c.impressions, 0);
+    const totalConversions = campaigns.reduce((sum, c) => sum + c.conversions, 0);
+    return { totalSpent, totalBudget, totalImpressions, totalConversions };
+  }, [campaigns]);
+
+  const handleRunSeoAudit = async () => {
+    const payload = {
+      keyword: seoMetrics?.keyword || "food delivery",
+      search_rank: seoMetrics?.searchRank || 0,
+      organic_growth: seoMetrics?.organicGrowth || 0,
+      backlinks: seoMetrics?.backlinks || 0,
+      updated_at: new Date().toISOString(),
+    };
+    if (seoMetrics) {
+      const { error } = await supabase.from("marketing_metrics").update(payload).eq("id", seoMetrics.id);
+      if (error) {
+        toast.error("Failed to update SEO metrics");
+        return;
+      }
+      setSeoMetrics({ ...seoMetrics, updatedAt: payload.updated_at });
+    } else {
+      const { data, error } = await supabase.from("marketing_metrics").insert(payload).select().maybeSingle();
+      if (error) {
+        toast.error("Failed to create SEO metrics");
+        return;
+      }
+      if (data) {
+        setSeoMetrics({
+          id: data.id,
+          keyword: data.keyword || "food delivery",
+          searchRank: data.search_rank || 0,
+          organicGrowth: Number(data.organic_growth || 0),
+          backlinks: data.backlinks || 0,
+          updatedAt: data.updated_at || payload.updated_at,
+        });
+      }
+    }
+    toast.success("SEO audit completed");
+  };
 
   return (
     <AdminLayout>
@@ -244,7 +317,7 @@ const Marketing: React.FC = () => {
               <Megaphone className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalBudget.toLocaleString()}</div>
+              <div className="text-2xl font-bold">${totals.totalBudget.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">All campaigns</p>
             </CardContent>
           </Card>
@@ -255,9 +328,9 @@ const Marketing: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${totalSpent.toLocaleString()}</div>
+              <div className="text-2xl font-bold">${totals.totalSpent.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                {((totalSpent / totalBudget) * 100).toFixed(1)}% of budget
+                {totals.totalBudget > 0 ? ((totals.totalSpent / totals.totalBudget) * 100).toFixed(1) : 0}% of budget
               </p>
             </CardContent>
           </Card>
@@ -268,7 +341,7 @@ const Marketing: React.FC = () => {
               <Eye className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{(totalImpressions / 1000).toFixed(0)}K</div>
+              <div className="text-2xl font-bold">{(totals.totalImpressions / 1000).toFixed(0)}K</div>
               <p className="text-xs text-muted-foreground">Total views</p>
             </CardContent>
           </Card>
@@ -279,10 +352,10 @@ const Marketing: React.FC = () => {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalConversions.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{totals.totalConversions.toLocaleString()}</div>
               <p className="text-xs text-muted-foreground">
-                {totalImpressions > 0
-                  ? ((totalConversions / totalImpressions) * 100).toFixed(2)
+                {totals.totalImpressions > 0
+                  ? ((totals.totalConversions / totals.totalImpressions) * 100).toFixed(2)
                   : 0}
                 % conversion rate
               </p>
@@ -355,21 +428,23 @@ const Marketing: React.FC = () => {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Search Rankings</p>
-                  <p className="text-2xl font-bold">#3</p>
-                  <p className="text-xs text-muted-foreground">"food delivery"</p>
+                  <p className="text-2xl font-bold">{seoMetrics ? `#${seoMetrics.searchRank || 0}` : "--"}</p>
+                  <p className="text-xs text-muted-foreground">"{seoMetrics?.keyword || "food delivery"}"</p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Organic Traffic</p>
-                  <p className="text-2xl font-bold">+15%</p>
-                  <p className="text-xs text-muted-foreground">This month</p>
+                  <p className="text-2xl font-bold">{seoMetrics ? `${seoMetrics.organicGrowth}%` : "--"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {seoMetrics?.updatedAt ? `Updated ${new Date(seoMetrics.updatedAt).toLocaleDateString()}` : "No data"}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground mb-1">Backlinks</p>
-                  <p className="text-2xl font-bold">1,245</p>
+                  <p className="text-2xl font-bold">{seoMetrics ? seoMetrics.backlinks.toLocaleString() : "--"}</p>
                   <p className="text-xs text-muted-foreground">Total</p>
                 </div>
               </div>
-              <Button variant="outline" className="w-full">
+              <Button variant="outline" className="w-full" onClick={handleRunSeoAudit}>
                 Run SEO Audit
               </Button>
             </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import Layout from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,16 +8,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { restaurants } from "@/data/dummyData";
 import { useOrders } from "@/context/OrdersContext";
 import { useAuth } from "@/context/AuthContext";
 import { Copy, Users, Pizza, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 const GroupOrdering: React.FC = () => {
   const { groupOrders, createGroupOrder, addParticipantToGroup } = useOrders();
   const { user } = useAuth();
-  const [selectedRestaurantId, setSelectedRestaurantId] = useState(restaurants[0]?.id ?? "");
+  const [restaurants, setRestaurants] = useState<Array<{ id: string; name: string; cuisine: string }>>([]);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState("");
   const [joinCode, setJoinCode] = useState("");
   const [participantName, setParticipantName] = useState(user?.name ?? "");
   const [participantItem, setParticipantItem] = useState("");
@@ -25,6 +26,25 @@ const GroupOrdering: React.FC = () => {
   const [participantPrice, setParticipantPrice] = useState(10);
 
   const activeOrder = groupOrders[0];
+  useEffect(() => {
+    setParticipantName(user?.name ?? "");
+  }, [user]);
+
+  useEffect(() => {
+    let active = true;
+    const loadRestaurants = async () => {
+      const { data } = await supabase.from("restaurants").select("id, name, cuisine").order("name");
+      if (!active) return;
+      setRestaurants(data || []);
+      if (!selectedRestaurantId && data?.length) {
+        setSelectedRestaurantId(data[0].id);
+      }
+    };
+    loadRestaurants();
+    return () => {
+      active = false;
+    };
+  }, [selectedRestaurantId]);
   const restaurantOptions = useMemo(
     () =>
       restaurants.map((restaurant) => (
@@ -32,7 +52,7 @@ const GroupOrdering: React.FC = () => {
           {restaurant.name} · {restaurant.cuisine}
         </option>
       )),
-    []
+    [restaurants]
   );
 
   const handleCreateGroup = () => {

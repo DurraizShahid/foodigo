@@ -3,15 +3,67 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { loyaltyRewards } from "@/data/dummyData";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabaseClient";
 
 interface LoyaltyProgressProps {
   userId?: string;
 }
 
 const LoyaltyProgress: React.FC<LoyaltyProgressProps> = ({ userId }) => {
-  const reward = loyaltyRewards.find((entry) => entry.userId === userId);
+  const [reward, setReward] = React.useState<{
+    id: string;
+    points: number;
+    nextRewardAt: number;
+    badges: string[];
+    recentActivity: Array<{ id: string; label: string; points: number; date: string }>;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadReward = async () => {
+      if (!userId) {
+        setReward(null);
+        return;
+      }
+      const { data: rewardRow } = await supabase
+        .from("loyalty_rewards")
+        .select("id, points, next_reward_at, badges")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!rewardRow) {
+        if (active) setReward(null);
+        return;
+      }
+
+      const { data: activityRows } = await supabase
+        .from("loyalty_activity")
+        .select("id, label, points, activity_date")
+        .eq("loyalty_reward_id", rewardRow.id)
+        .order("activity_date", { ascending: false });
+
+      if (!active) return;
+
+      setReward({
+        id: rewardRow.id,
+        points: rewardRow.points,
+        nextRewardAt: rewardRow.next_reward_at,
+        badges: rewardRow.badges || [],
+        recentActivity: (activityRows || []).map((entry) => ({
+          id: entry.id,
+          label: entry.label,
+          points: entry.points,
+          date: entry.activity_date,
+        })),
+      });
+    };
+
+    loadReward();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
 
   if (!reward) {
     return (
@@ -26,7 +78,7 @@ const LoyaltyProgress: React.FC<LoyaltyProgressProps> = ({ userId }) => {
     );
   }
 
-  const progressPercent = (reward.points / reward.nextRewardAt) * 100;
+  const progressPercent = reward.nextRewardAt ? (reward.points / reward.nextRewardAt) * 100 : 0;
 
   return (
     <Card>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,9 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Truck, Plus, Edit, MapPin, Clock, DollarSign, Users } from "lucide-react";
+import { Truck, Plus, Edit, MapPin, DollarSign, Users } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 interface FleetVehicle {
   id: string;
@@ -38,73 +39,8 @@ interface FleetDriver {
 }
 
 const FleetManagement: React.FC = () => {
-  const [vehicles, setVehicles] = useState<FleetVehicle[]>([
-    {
-      id: "VH-001",
-      vehicleType: "car",
-      licensePlate: "ABC-1234",
-      driverId: "DRV-001",
-      driverName: "John Doe",
-      status: "in_use",
-      location: { lat: 37.7749, lng: -122.4194, address: "123 Main St" },
-      lastMaintenance: "2025-01-15",
-      nextMaintenance: "2025-02-15",
-      totalDeliveries: 245,
-      totalEarnings: 4900,
-    },
-    {
-      id: "VH-002",
-      vehicleType: "bike",
-      licensePlate: "XYZ-5678",
-      driverId: "DRV-002",
-      driverName: "Jane Smith",
-      status: "available",
-      location: { lat: 37.7849, lng: -122.4094, address: "456 Oak Ave" },
-      lastMaintenance: "2025-01-20",
-      nextMaintenance: "2025-02-20",
-      totalDeliveries: 180,
-      totalEarnings: 3600,
-    },
-    {
-      id: "VH-003",
-      vehicleType: "truck",
-      licensePlate: "TRK-9012",
-      status: "maintenance",
-      location: { lat: 37.7649, lng: -122.4294, address: "789 Elm St" },
-      lastMaintenance: "2025-01-10",
-      nextMaintenance: "2025-01-30",
-      totalDeliveries: 320,
-      totalEarnings: 9600,
-    },
-  ]);
-
-  const [drivers, setDrivers] = useState<FleetDriver[]>([
-    {
-      id: "DRV-001",
-      name: "John Doe",
-      vehicleId: "VH-001",
-      vehicleType: "car",
-      status: "active",
-      totalDeliveries: 245,
-      rating: 4.8,
-    },
-    {
-      id: "DRV-002",
-      name: "Jane Smith",
-      vehicleId: "VH-002",
-      vehicleType: "bike",
-      status: "active",
-      totalDeliveries: 180,
-      rating: 4.9,
-    },
-    {
-      id: "DRV-003",
-      name: "Bob Johnson",
-      status: "inactive",
-      totalDeliveries: 0,
-      rating: 0,
-    },
-  ]);
+  const [vehicles, setVehicles] = useState<FleetVehicle[]>([]);
+  const [drivers, setDrivers] = useState<FleetDriver[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -113,7 +49,56 @@ const FleetManagement: React.FC = () => {
     driverId: "",
   });
 
-  const handleAddVehicle = () => {
+  useEffect(() => {
+    let active = true;
+    const loadFleet = async () => {
+      const [{ data: vehicleRows }, { data: driverRows }] = await Promise.all([
+        supabase
+          .from("fleet_vehicles")
+          .select(
+            "id, vehicle_type, license_plate, driver_id, status, location_lat, location_lng, location_address, last_maintenance, next_maintenance, total_deliveries, total_earnings"
+          )
+          .order("created_at", { ascending: false }),
+        supabase.from("profiles").select("id, full_name").eq("role", "driver").order("full_name"),
+      ]);
+      if (!active) return;
+      const driverMap = new Map((driverRows || []).map((driver) => [driver.id, driver.full_name || "Driver"]));
+      setDrivers(
+        (driverRows || []).map((driver) => ({
+          id: driver.id,
+          name: driver.full_name || "Driver",
+          status: "active",
+          totalDeliveries: 0,
+          rating: 0,
+        }))
+      );
+      setVehicles(
+        (vehicleRows || []).map((vehicle) => ({
+          id: vehicle.id,
+          vehicleType: vehicle.vehicle_type as FleetVehicle["vehicleType"],
+          licensePlate: vehicle.license_plate,
+          driverId: vehicle.driver_id || undefined,
+          driverName: vehicle.driver_id ? driverMap.get(vehicle.driver_id) : undefined,
+          status: vehicle.status as FleetVehicle["status"],
+          location: {
+            lat: Number(vehicle.location_lat || 0),
+            lng: Number(vehicle.location_lng || 0),
+            address: vehicle.location_address || "Fleet Depot",
+          },
+          lastMaintenance: vehicle.last_maintenance || "",
+          nextMaintenance: vehicle.next_maintenance || "",
+          totalDeliveries: vehicle.total_deliveries || 0,
+          totalEarnings: Number(vehicle.total_earnings || 0),
+        }))
+      );
+    };
+    loadFleet();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleAddVehicle = async () => {
     if (!formData.licensePlate) {
       toast.error("Please enter license plate");
       return;
@@ -133,21 +118,40 @@ const FleetManagement: React.FC = () => {
       totalDeliveries: 0,
       totalEarnings: 0,
     };
-    setVehicles([...vehicles, newVehicle]);
+    const { error } = await supabase.from("fleet_vehicles").insert({
+      id: newVehicle.id,
+      vehicle_type: newVehicle.vehicleType,
+      license_plate: newVehicle.licensePlate,
+      driver_id: newVehicle.driverId || null,
+      status: newVehicle.status,
+      location_lat: newVehicle.location.lat,
+      location_lng: newVehicle.location.lng,
+      location_address: newVehicle.location.address,
+      last_maintenance: newVehicle.lastMaintenance,
+      next_maintenance: newVehicle.nextMaintenance,
+      total_deliveries: newVehicle.totalDeliveries,
+      total_earnings: newVehicle.totalEarnings,
+    });
+    if (error) {
+      toast.error("Failed to add vehicle");
+      return;
+    }
+    setVehicles((prev) => [newVehicle, ...prev]);
     setFormData({ vehicleType: "car", licensePlate: "", driverId: "" });
     setIsDialogOpen(false);
     toast.success("Vehicle added to fleet!");
   };
 
-  const handleAssignDriver = (vehicleId: string, driverId: string) => {
+  const handleAssignDriver = async (vehicleId: string, driverId: string) => {
     const driver = drivers.find((d) => d.id === driverId);
-    setVehicles(
-      vehicles.map((v) =>
-        v.id === vehicleId
-          ? { ...v, driverId, driverName: driver?.name }
-          : v
-      )
+    setVehicles((prev) =>
+      prev.map((v) => (v.id === vehicleId ? { ...v, driverId, driverName: driver?.name } : v))
     );
+    const { error } = await supabase.from("fleet_vehicles").update({ driver_id: driverId || null }).eq("id", vehicleId);
+    if (error) {
+      toast.error("Failed to assign driver");
+      return;
+    }
     toast.success("Driver assigned to vehicle");
   };
 
@@ -166,10 +170,13 @@ const FleetManagement: React.FC = () => {
     }
   };
 
-  const totalVehicles = vehicles.length;
-  const availableVehicles = vehicles.filter((v) => v.status === "available").length;
-  const inUseVehicles = vehicles.filter((v) => v.status === "in_use").length;
-  const totalFleetEarnings = vehicles.reduce((sum, v) => sum + v.totalEarnings, 0);
+  const fleetStats = useMemo(() => {
+    const totalVehicles = vehicles.length;
+    const availableVehicles = vehicles.filter((v) => v.status === "available").length;
+    const inUseVehicles = vehicles.filter((v) => v.status === "in_use").length;
+    const totalFleetEarnings = vehicles.reduce((sum, v) => sum + v.totalEarnings, 0);
+    return { totalVehicles, availableVehicles, inUseVehicles, totalFleetEarnings };
+  }, [vehicles]);
 
   return (
     <AdminLayout>
@@ -249,7 +256,7 @@ const FleetManagement: React.FC = () => {
               <Truck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalVehicles}</div>
+              <div className="text-2xl font-bold">{fleetStats.totalVehicles}</div>
               <p className="text-xs text-muted-foreground">In fleet</p>
             </CardContent>
           </Card>
@@ -260,7 +267,7 @@ const FleetManagement: React.FC = () => {
               <Truck className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{availableVehicles}</div>
+              <div className="text-2xl font-bold">{fleetStats.availableVehicles}</div>
               <p className="text-xs text-muted-foreground">Ready for use</p>
             </CardContent>
           </Card>
@@ -271,7 +278,7 @@ const FleetManagement: React.FC = () => {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{inUseVehicles}</div>
+              <div className="text-2xl font-bold">{fleetStats.inUseVehicles}</div>
               <p className="text-xs text-muted-foreground">Active deliveries</p>
             </CardContent>
           </Card>
@@ -282,7 +289,7 @@ const FleetManagement: React.FC = () => {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">${(totalFleetEarnings / 1000).toFixed(1)}K</div>
+              <div className="text-2xl font-bold">${(fleetStats.totalFleetEarnings / 1000).toFixed(1)}K</div>
               <p className="text-xs text-muted-foreground">All time</p>
             </CardContent>
           </Card>

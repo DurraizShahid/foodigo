@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { MapPin, Plus, Edit, Globe, Activity } from "lucide-react";
 import { toast } from "sonner";
-import { cityOperations } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
 
 interface City {
   id: string;
@@ -27,41 +27,7 @@ interface City {
 }
 
 const Cities: React.FC = () => {
-  const [cities, setCities] = useState<City[]>([
-    {
-      id: "city1",
-      name: "Cityville",
-      country: "USA",
-      status: "online",
-      surge: "low",
-      restaurants: 45,
-      drivers: 120,
-      orders: 1200,
-      revenue: 33000,
-    },
-    {
-      id: "city2",
-      name: "Townsville",
-      country: "USA",
-      status: "online",
-      surge: "medium",
-      restaurants: 38,
-      drivers: 95,
-      orders: 980,
-      revenue: 27200,
-    },
-    {
-      id: "city3",
-      name: "Villageton",
-      country: "USA",
-      status: "maintenance",
-      surge: "N/A",
-      restaurants: 25,
-      drivers: 60,
-      orders: 0,
-      revenue: 0,
-    },
-  ]);
+  const [cities, setCities] = useState<City[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -69,12 +35,29 @@ const Cities: React.FC = () => {
     country: "",
   });
 
+  useEffect(() => {
+    let active = true;
+    const loadCities = async () => {
+      const { data } = await supabase
+        .from("city_operations")
+        .select("id, name, country, status, surge, restaurants, drivers, orders, revenue")
+        .order("name");
+      if (!active) return;
+      setCities((data || []) as City[]);
+    };
+    loadCities();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const handleToggleStatus = (cityId: string) => {
-    setCities(
-      cities.map((city) => {
+    setCities((prev) =>
+      prev.map((city) => {
         if (city.id === cityId) {
           const newStatus =
             city.status === "online" ? "offline" : city.status === "offline" ? "maintenance" : "online";
+          supabase.from("city_operations").update({ status: newStatus }).eq("id", cityId);
           return { ...city, status: newStatus };
         }
         return city;
@@ -98,7 +81,18 @@ const Cities: React.FC = () => {
       orders: 0,
       revenue: 0,
     };
-    setCities([...cities, newCity]);
+    setCities((prev) => [...prev, newCity]);
+    supabase.from("city_operations").insert({
+      id: newCity.id,
+      name: newCity.name,
+      country: newCity.country,
+      status: newCity.status,
+      surge: newCity.surge,
+      restaurants: newCity.restaurants,
+      drivers: newCity.drivers,
+      orders: newCity.orders,
+      revenue: newCity.revenue,
+    });
     setFormData({ name: "", country: "" });
     setIsDialogOpen(false);
     toast.success("City added successfully!");

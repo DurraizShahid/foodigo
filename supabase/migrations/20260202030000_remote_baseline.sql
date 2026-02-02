@@ -1,0 +1,2 @@
+-- Remote baseline migration placeholder.
+-- This file aligns local migration history with the remote project.

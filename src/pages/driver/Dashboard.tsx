@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,17 +8,74 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import Layout from "@/components/Layout";
 import { DollarSign, MapPin, Clock, Package, Navigation, Phone, Flame, MessageCircle, User, Route, Zap, TrendingUp, Bike } from "lucide-react";
-import { orders, driverStats } from "@/data/dummyData";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 const DriverDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [isOnline, setIsOnline] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [orders, setOrders] = useState<Array<{ id: string; status: string; total: number; created_at: string; items: Array<{ name: string; quantity: number }> }>>([]);
+  const [driverStats, setDriverStats] = useState<{
+    earnings: { week: Array<{ label: string; value: number }>; total: number; completedDeliveries: number; avgRating: number };
+    hotspots: Array<{ name: string; eta: string; distance: string }>;
+    incentives: Array<{ id: string; title: string; requirement: string; reward: string; progress: number; target: number }>;
+    chats: Array<{ id: string; name: string; snippet: string; time: string }>;
+  }>({
+    earnings: { week: [], total: 0, completedDeliveries: 0, avgRating: 0 },
+    hotspots: [],
+    incentives: [],
+    chats: [],
+  });
 
-  const availableOrders = orders.filter((o) => o.status === "Pending");
-  const completedOrders = orders.filter((o) => o.status === "Delivered");
-  const totalEarnings = completedOrders.reduce((sum, order) => sum + order.total * 0.2, 0); // 20% commission
+  useEffect(() => {
+    let active = true;
+    const loadData = async () => {
+      const { data: orderRows } = await supabase
+        .from("orders")
+        .select("id, status, total, created_at, order_items(name, quantity)")
+        .order("created_at", { ascending: false });
+      const { data: statsRow } = await supabase
+        .from("driver_stats")
+        .select("earnings, hotspots, incentives, chats")
+        .eq("driver_id", user?.id || "")
+        .maybeSingle();
+      if (!active) return;
+      setOrders(
+        (orderRows || []).map((order) => ({
+          id: order.id,
+          status: order.status,
+          total: Number(order.total),
+          created_at: order.created_at,
+          items: (order.order_items || []).map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+          })),
+        }))
+      );
+      setDriverStats({
+        earnings: (statsRow?.earnings || { week: [], total: 0, completedDeliveries: 0, avgRating: 0 }) as {
+          week: Array<{ label: string; value: number }>;
+          total: number;
+          completedDeliveries: number;
+          avgRating: number;
+        },
+        hotspots: (statsRow?.hotspots || []) as Array<{ name: string; eta: string; distance: string }>,
+        incentives: (statsRow?.incentives || []) as Array<{ id: string; title: string; requirement: string; reward: string; progress: number; target: number }>,
+        chats: (statsRow?.chats || []) as Array<{ id: string; name: string; snippet: string; time: string }>,
+      });
+    };
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const availableOrders = useMemo(() => orders.filter((o) => o.status === "Pending"), [orders]);
+  const completedOrders = useMemo(() => orders.filter((o) => o.status === "Delivered"), [orders]);
+  const totalEarnings = useMemo(() => completedOrders.reduce((sum, order) => sum + order.total * 0.2, 0), [completedOrders]);
 
   const handleToggleOnline = () => {
     setIsOnline(!isOnline);

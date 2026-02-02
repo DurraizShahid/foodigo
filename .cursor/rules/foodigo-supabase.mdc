@@ -1,0 +1,13 @@
+---
+description: Supabase-first conventions for Foodigo
+alwaysApply: true
+---
+
+# Supabase-first workflow
+
+- Do not use dummy data or local mocks in the app.
+- Use `supabase` from `src/lib/supabaseClient.ts` for all queries.
+- Keep auth profile data in `public.profiles` and rely on `profiles.role` for roles.
+- Add schema changes via new SQL migrations in `supabase/migrations/`.
+- Prefer `resolveImageUrl` for images and keep bucket names consistent:
+  - `restaurants`, `menu-items`, `avatars`.

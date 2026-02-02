@@ -1,48 +1,170 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, Users, DollarSign, Package, BarChart3, Activity } from "lucide-react";
-import { adminInsights } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
 
 const Analytics: React.FC = () => {
-  const analyticsData = {
-    userGrowth: [
-      { month: "Jan", users: 5000, growth: 0 },
-      { month: "Feb", users: 6500, growth: 30 },
-      { month: "Mar", users: 8200, growth: 26 },
-      { month: "Apr", users: 10000, growth: 22 },
-      { month: "May", users: 12500, growth: 25 },
-    ],
-    orderTrends: [
-      { day: "Mon", orders: 1200, revenue: 33000 },
-      { day: "Tue", orders: 1350, revenue: 37500 },
-      { day: "Wed", orders: 1420, revenue: 39500 },
-      { day: "Thu", orders: 1480, revenue: 41000 },
-      { day: "Fri", orders: 1850, revenue: 51500 },
-      { day: "Sat", orders: 1650, revenue: 45800 },
-      { day: "Sun", orders: 1400, revenue: 38900 },
-    ],
-    topRestaurants: [
-      { name: "Pizza Palace", orders: 2450, revenue: 68000, rating: 4.8 },
-      { name: "Burger Joint", orders: 1890, revenue: 47250, rating: 4.6 },
-      { name: "Sushi House", orders: 1650, revenue: 49500, rating: 4.9 },
-      { name: "Taco Fiesta", orders: 1420, revenue: 28400, rating: 4.5 },
-    ],
-    customerSegments: [
-      { segment: "New Customers", count: 2500, percentage: 20 },
-      { segment: "Regular (1-5 orders)", count: 5000, percentage: 40 },
-      { segment: "Frequent (6-15 orders)", count: 3500, percentage: 28 },
-      { segment: "VIP (15+ orders)", count: 1500, percentage: 12 },
-    ],
-    retentionRate: 68,
-    churnRate: 12,
-    ltv: 125.50,
-  };
+  const [analyticsData, setAnalyticsData] = useState<{
+    userGrowth: Array<{ month: string; users: number; growth: number }>;
+    orderTrends: Array<{ day: string; orders: number; revenue: number }>;
+    topRestaurants: Array<{ name: string; orders: number; revenue: number; rating: number }>;
+    customerSegments: Array<{ segment: string; count: number; percentage: number }>;
+    retentionRate: number;
+    churnRate: number;
+    ltv: number;
+    totalUsers: number;
+  }>({
+    userGrowth: [],
+    orderTrends: [],
+    topRestaurants: [],
+    customerSegments: [],
+    retentionRate: 0,
+    churnRate: 0,
+    ltv: 0,
+    totalUsers: 0,
+  });
+
+  useEffect(() => {
+    let active = true;
+    const loadAnalytics = async () => {
+      const [{ data: profileRows }, { data: orderRows }, { data: restaurants }] = await Promise.all([
+        supabase.from("profiles").select("id, created_at"),
+        supabase.from("orders").select("id, user_id, restaurant_id, total, created_at"),
+        supabase.from("restaurants").select("id, name, rating"),
+      ]);
+      if (!active) return;
+
+      const restaurantMap = new Map((restaurants || []).map((row) => [row.id, row]));
+      const now = new Date();
+      const last30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      const prev30 = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+
+      const userGrowthMap = (profileRows || []).reduce<Record<string, number>>((acc, profile) => {
+        const date = new Date(profile.created_at);
+        const key = `${date.getFullYear()}-${date.getMonth()}`;
+        acc[key] = (acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      const userGrowthKeys = Object.keys(userGrowthMap)
+        .map((key) => {
+          const [year, month] = key.split("-").map(Number);
+          return { key, year, month };
+        })
+        .sort((a, b) => (a.year - b.year) || (a.month - b.month))
+        .slice(-6);
+      const userGrowth = userGrowthKeys.map((entry, index) => {
+        const { key, year, month } = entry;
+        const users = userGrowthMap[key];
+        const previousKey = index > 0 ? userGrowthKeys[index - 1].key : null;
+        const previousUsers = previousKey ? userGrowthMap[previousKey] : 0;
+        const growth = previousUsers > 0 ? Math.round(((users - previousUsers) / previousUsers) * 100) : 0;
+        return {
+          month: new Date(year, month, 1).toLocaleString(undefined, { month: "short" }),
+          users,
+          growth,
+        };
+      });
+
+      const orderTrendsMap = (orderRows || []).reduce<Record<string, { orders: number; revenue: number }>>((acc, order) => {
+        const date = new Date(order.created_at);
+        if (date < last30) return acc;
+        const day = date.toLocaleString(undefined, { weekday: "short" });
+        if (!acc[day]) acc[day] = { orders: 0, revenue: 0 };
+        acc[day].orders += 1;
+        acc[day].revenue += Number(order.total || 0);
+        return acc;
+      }, {});
+      const weekdayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      const orderTrends = Object.entries(orderTrendsMap)
+        .sort((a, b) => weekdayOrder.indexOf(a[0]) - weekdayOrder.indexOf(b[0]))
+        .map(([day, values]) => ({
+          day,
+          orders: values.orders,
+          revenue: values.revenue,
+        }));
+
+      const restaurantStats = (orderRows || []).reduce<Record<string, { orders: number; revenue: number }>>((acc, order) => {
+        if (!order.restaurant_id) return acc;
+        if (!acc[order.restaurant_id]) acc[order.restaurant_id] = { orders: 0, revenue: 0 };
+        acc[order.restaurant_id].orders += 1;
+        acc[order.restaurant_id].revenue += Number(order.total || 0);
+        return acc;
+      }, {});
+      const topRestaurants = Object.entries(restaurantStats)
+        .map(([id, stats]) => {
+          const restaurant = restaurantMap.get(id);
+          return {
+            name: restaurant?.name || "Unknown",
+            orders: stats.orders,
+            revenue: stats.revenue,
+            rating: Number(restaurant?.rating || 0),
+          };
+        })
+        .sort((a, b) => b.revenue - a.revenue)
+        .slice(0, 5);
+
+      const ordersByUser = (orderRows || []).reduce<Record<string, number>>((acc, order) => {
+        if (!order.user_id) return acc;
+        acc[order.user_id] = (acc[order.user_id] || 0) + 1;
+        return acc;
+      }, {});
+      const segmentCounts = {
+        New: 0,
+        Active: 0,
+        Loyal: 0,
+      };
+      Object.values(ordersByUser).forEach((count) => {
+        if (count <= 1) segmentCounts.New += 1;
+        else if (count <= 5) segmentCounts.Active += 1;
+        else segmentCounts.Loyal += 1;
+      });
+      const totalSegmentUsers = Object.values(segmentCounts).reduce((sum, value) => sum + value, 0) || 1;
+      const customerSegments = Object.entries(segmentCounts).map(([segment, count]) => ({
+        segment,
+        count,
+        percentage: Math.round((count / totalSegmentUsers) * 100),
+      }));
+
+      const usersLast30 = new Set((orderRows || []).filter((o) => new Date(o.created_at) >= last30).map((o) => o.user_id).filter(Boolean) as string[]);
+      const usersPrev30 = new Set(
+        (orderRows || [])
+          .filter((o) => {
+            const date = new Date(o.created_at);
+            return date >= prev30 && date < last30;
+          })
+          .map((o) => o.user_id)
+          .filter(Boolean) as string[]
+      );
+      const retained = [...usersPrev30].filter((id) => usersLast30.has(id)).length;
+      const retentionRate = usersPrev30.size > 0 ? Math.round((retained / usersPrev30.size) * 100) : 0;
+      const churnRate = usersPrev30.size > 0 ? Math.round(((usersPrev30.size - retained) / usersPrev30.size) * 100) : 0;
+
+      const totalRevenue = (orderRows || []).reduce((sum, order) => sum + Number(order.total || 0), 0);
+      const uniqueCustomers = new Set((orderRows || []).map((order) => order.user_id).filter(Boolean) as string[]);
+      const ltv = uniqueCustomers.size > 0 ? Math.round(totalRevenue / uniqueCustomers.size) : 0;
+
+      setAnalyticsData({
+        userGrowth,
+        orderTrends,
+        topRestaurants,
+        customerSegments,
+        retentionRate,
+        churnRate,
+        ltv,
+        totalUsers: profileRows?.length || 0,
+      });
+    };
+    loadAnalytics();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <AdminLayout>
@@ -90,8 +212,8 @@ const Analytics: React.FC = () => {
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">12.5K</div>
-              <p className="text-xs text-muted-foreground">Active users</p>
+              <div className="text-2xl font-bold">{analyticsData.totalUsers.toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Total users</p>
             </CardContent>
           </Card>
         </div>

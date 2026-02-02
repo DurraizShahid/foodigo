@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FlaskConical, Plus, Play, Pause, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
-import { experiments } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Experiment {
   id: string;
@@ -34,56 +34,7 @@ interface Experiment {
 }
 
 const ABTesting: React.FC = () => {
-  const [experiments, setExperiments] = useState<Experiment[]>([
-    {
-      id: "EXP-001",
-      name: "New Homepage Layout",
-      description: "Testing new homepage design vs current",
-      feature: "Homepage",
-      variantA: "Control (Current)",
-      variantB: "New Design",
-      status: "running",
-      trafficSplit: 50,
-      participants: 5000,
-      variantAUsers: 2500,
-      variantBUsers: 2500,
-      variantAConversion: 12.5,
-      variantBConversion: 15.8,
-      startDate: "2025-01-15",
-    },
-    {
-      id: "EXP-002",
-      name: "Checkout Button Color",
-      description: "Testing green vs orange checkout button",
-      feature: "Checkout",
-      variantA: "Green Button",
-      variantB: "Orange Button",
-      status: "paused",
-      trafficSplit: 50,
-      participants: 3000,
-      variantAUsers: 1500,
-      variantBUsers: 1500,
-      variantAConversion: 18.2,
-      variantBConversion: 16.5,
-      startDate: "2025-01-10",
-    },
-    {
-      id: "EXP-003",
-      name: "Restaurant Card Layout",
-      description: "Testing card vs list view for restaurants",
-      feature: "Restaurant Listings",
-      status: "draft",
-      trafficSplit: 50,
-      participants: 0,
-      variantAUsers: 0,
-      variantBUsers: 0,
-      variantAConversion: 0,
-      variantBConversion: 0,
-      startDate: "",
-      variantA: "Card View",
-      variantB: "List View",
-    },
-  ]);
+  const [experiments, setExperiments] = useState<Experiment[]>([]);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -94,6 +45,42 @@ const ABTesting: React.FC = () => {
     variantB: "",
     trafficSplit: 50,
   });
+
+  useEffect(() => {
+    let active = true;
+    const loadExperiments = async () => {
+      const { data } = await supabase
+        .from("experiments")
+        .select(
+          "id, name, description, feature, variant_a, variant_b, status, traffic_split, participants, variant_a_users, variant_b_users, variant_a_conversion, variant_b_conversion, start_date, end_date"
+        )
+        .order("start_date", { ascending: false });
+      if (!active) return;
+      setExperiments(
+        (data || []).map((exp) => ({
+          id: exp.id,
+          name: exp.name,
+          description: exp.description || "",
+          feature: exp.feature || "",
+          variantA: exp.variant_a || "",
+          variantB: exp.variant_b || "",
+          status: (exp.status || "draft") as Experiment["status"],
+          trafficSplit: exp.traffic_split || 0,
+          participants: exp.participants || 0,
+          variantAUsers: exp.variant_a_users || 0,
+          variantBUsers: exp.variant_b_users || 0,
+          variantAConversion: Number(exp.variant_a_conversion || 0),
+          variantBConversion: Number(exp.variant_b_conversion || 0),
+          startDate: exp.start_date || "",
+          endDate: exp.end_date || undefined,
+        }))
+      );
+    };
+    loadExperiments();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleCreateExperiment = () => {
     if (!formData.name || !formData.variantA || !formData.variantB) {
@@ -111,7 +98,22 @@ const ABTesting: React.FC = () => {
       variantBConversion: 0,
       startDate: "",
     };
-    setExperiments([...experiments, newExperiment]);
+    setExperiments((prev) => [...prev, newExperiment]);
+    supabase.from("experiments").insert({
+      id: newExperiment.id,
+      name: newExperiment.name,
+      description: newExperiment.description,
+      feature: newExperiment.feature,
+      variant_a: newExperiment.variantA,
+      variant_b: newExperiment.variantB,
+      status: newExperiment.status,
+      traffic_split: newExperiment.trafficSplit,
+      participants: newExperiment.participants,
+      variant_a_users: newExperiment.variantAUsers,
+      variant_b_users: newExperiment.variantBUsers,
+      variant_a_conversion: newExperiment.variantAConversion,
+      variant_b_conversion: newExperiment.variantBConversion,
+    });
     setFormData({
       name: "",
       description: "",
@@ -130,6 +132,7 @@ const ABTesting: React.FC = () => {
         if (exp.id === expId) {
           const newStatus =
             exp.status === "running" ? "paused" : exp.status === "paused" ? "running" : exp.status;
+          supabase.from("experiments").update({ status: newStatus }).eq("id", expId);
           return { ...exp, status: newStatus };
         }
         return exp;

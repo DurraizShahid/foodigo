@@ -17,3 +17,12 @@ Available packages and libraries:
 - You ALREADY have ALL the shadcn/ui components and their dependencies installed. So you don't need to install them again.
 - You have ALL the necessary Radix UI components installed.
 - Use prebuilt components from the shadcn/ui library after importing them. Note that these files shouldn't be edited, so make new components if you need to change them.
+
+# Supabase Conventions
+
+- Never use or reintroduce dummy data. Fetch via Supabase.
+- Use the shared client in `src/lib/supabaseClient.ts`.
+- Resolve images with `resolveImageUrl(bucket, path, fallbackUrl)`.
+- Persist user profile fields in `public.profiles` (`full_name`, `avatar_url`, `role`).
+- Assume RLS is enforced; queries must respect role and ownership rules.
+- When schema changes are required, create a new migration in `supabase/migrations/` (do not edit applied migrations).

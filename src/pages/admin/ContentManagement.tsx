@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,22 +12,60 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Edit, Trash2, Image as ImageIcon, Star } from "lucide-react";
-import { restaurants, offers } from "@/data/dummyData";
 import { toast } from "sonner";
+import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
 
 const ContentManagement: React.FC = () => {
-  const [banners, setBanners] = useState([
-    { id: "1", title: "Summer Special", image: offers[0].image, active: true, order: 1 },
-    { id: "2", title: "Free Delivery", image: offers[1].image, active: true, order: 2 },
-    { id: "3", title: "New Restaurant", image: offers[2].image, active: false, order: 3 },
-  ]);
+  const [banners, setBanners] = useState<Array<{ id: string; title: string; image: string; active: boolean; order: number }>>([]);
+  const [featuredRestaurants, setFeaturedRestaurants] = useState<
+    Array<{ id: string; name: string; cuisine: string; rating: number; address: string; image: string; featured: boolean; order: number | null }>
+  >([]);
 
-  const [featuredRestaurants, setFeaturedRestaurants] = useState(
-    restaurants.map((r, idx) => ({ ...r, featured: idx < 3, order: idx + 1 }))
-  );
+  useEffect(() => {
+    let active = true;
+    const loadData = async () => {
+      const [{ data: offers }, { data: restaurants }] = await Promise.all([
+        supabase.from("offers").select("id, title, image_path, image_url, active, display_order").order("display_order"),
+        supabase
+          .from("restaurants")
+          .select("id, name, cuisine, rating, address, image_path, image_url, is_featured, featured_order")
+          .order("featured_order", { ascending: true }),
+      ]);
+      if (!active) return;
+      setBanners(
+        (offers || []).map((offer) => ({
+          id: offer.id,
+          title: offer.title,
+          image: resolveImageUrl("restaurants", offer.image_path, offer.image_url),
+          active: offer.active,
+          order: offer.display_order,
+        }))
+      );
+      setFeaturedRestaurants(
+        (restaurants || []).map((restaurant) => ({
+          id: restaurant.id,
+          name: restaurant.name,
+          cuisine: restaurant.cuisine || "",
+          rating: Number(restaurant.rating || 0),
+          address: restaurant.address || "",
+          image: resolveImageUrl("restaurants", restaurant.image_path, restaurant.image_url),
+          featured: restaurant.is_featured,
+          order: restaurant.featured_order,
+        }))
+      );
+    };
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleToggleBanner = (id: string) => {
     setBanners(banners.map((b) => (b.id === id ? { ...b, active: !b.active } : b)));
+    const banner = banners.find((b) => b.id === id);
+    if (banner) {
+      supabase.from("offers").update({ active: !banner.active }).eq("id", id);
+    }
     toast.success("Banner status updated");
   };
 
@@ -35,6 +73,13 @@ const ContentManagement: React.FC = () => {
     setFeaturedRestaurants(
       featuredRestaurants.map((r) => (r.id === id ? { ...r, featured: !r.featured } : r))
     );
+    const restaurant = featuredRestaurants.find((r) => r.id === id);
+    if (restaurant) {
+      supabase
+        .from("restaurants")
+        .update({ is_featured: !restaurant.featured, featured_order: restaurant.featured ? null : restaurant.order || 1 })
+        .eq("id", id);
+    }
     toast.success("Featured status updated");
   };
 

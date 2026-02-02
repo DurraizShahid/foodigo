@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { subscriptions } from "@/data/dummyData";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
 
 interface SubscriptionStatusProps {
   userId?: string;
@@ -19,7 +19,42 @@ const tierBenefits: Record<string, string[]> = {
 };
 
 const SubscriptionStatus: React.FC<SubscriptionStatusProps> = ({ userId }) => {
-  const subscription = subscriptions.find((sub) => sub.userId === userId);
+  const [subscription, setSubscription] = React.useState<{
+    tier: string;
+    renewalDate: string | null;
+    monthlyFee: number;
+    active: boolean;
+  } | null>(null);
+
+  React.useEffect(() => {
+    let active = true;
+    const loadSubscription = async () => {
+      if (!userId) {
+        setSubscription(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("subscriptions")
+        .select("tier, renewal_date, monthly_fee, active")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!active) return;
+      if (!data) {
+        setSubscription(null);
+        return;
+      }
+      setSubscription({
+        tier: data.tier,
+        renewalDate: data.renewal_date,
+        monthlyFee: Number(data.monthly_fee),
+        active: data.active,
+      });
+    };
+    loadSubscription();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
   const tier = subscription?.tier ?? "Free";
   const renewalText = subscription?.renewalDate ? `Renews on ${subscription.renewalDate}` : "Upgrade to unlock perks";
   const tierPerks = tierBenefits[tier] ?? tierBenefits.Free;

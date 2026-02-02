@@ -19,6 +19,8 @@ import DriverDashboard from "./pages/driver/Dashboard";
 import Restaurants from "./pages/admin/Restaurants";
 import Drivers from "./pages/admin/Drivers";
 import Customers from "./pages/admin/Customers";
+import AdminOrders from "./pages/admin/Orders";
+import AdminMenuItems from "./pages/admin/MenuItems";
 import AdminOperations from "./pages/admin/Operations";
 import ContentManagement from "./pages/admin/ContentManagement";
 import AdminFinancial from "./pages/admin/Financial";
@@ -96,6 +98,8 @@ const App = () => (
               <Route path="/admin/restaurants" element={<Restaurants />} />
               <Route path="/admin/drivers" element={<Drivers />} />
               <Route path="/admin/users" element={<Customers />} />
+              <Route path="/admin/orders" element={<AdminOrders />} />
+              <Route path="/admin/menu-items" element={<AdminMenuItems />} />
               <Route path="/admin/content" element={<ContentManagement />} />
               <Route path="/admin/operations" element={<AdminOperations />} />
               <Route path="/admin/financial" element={<AdminFinancial />} />

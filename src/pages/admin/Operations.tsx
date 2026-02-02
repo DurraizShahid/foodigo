@@ -1,15 +1,48 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { experiments, fraudAlerts, cityOperations, adminInsights } from "@/data/dummyData";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/lib/supabaseClient";
 
 const AdminOperations: React.FC = () => {
+  const [supportTickets, setSupportTickets] = useState<Array<{ id: string; type: string; status: string; priority: string }>>([]);
+  const [fraudAlerts, setFraudAlerts] = useState<Array<{ id: string; type: string; risk: string; action?: string; city?: string }>>([]);
+  const [experiments, setExperiments] = useState<Array<{ id: string; name: string; segment?: string; status?: string }>>([]);
+  const [cityOperations, setCityOperations] = useState<Array<{ id: string; name: string; status: string; surge: string }>>([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadData = async () => {
+      const [{ data: ticketRows }, { data: fraudRows }, { data: experimentRows }, { data: cityRows }] = await Promise.all([
+        supabase.from("support_tickets").select("id, type, status, priority").order("updated_at", { ascending: false }).limit(6),
+        supabase.from("fraud_alerts").select("id, type, risk, action, city").order("detected_at", { ascending: false }),
+        supabase.from("experiments").select("id, name, segment, status").order("start_date", { ascending: false }),
+        supabase.from("city_operations").select("id, name, status, surge").order("name"),
+      ]);
+
+      if (!active) return;
+      setSupportTickets(
+        (ticketRows || []).map((ticket) => ({
+          id: ticket.id,
+          type: ticket.type || "General",
+          status: ticket.status || "Open",
+          priority: ticket.priority || "low",
+        }))
+      );
+      setFraudAlerts((fraudRows || []) as Array<{ id: string; type: string; risk: string; action?: string; city?: string }>);
+      setExperiments((experimentRows || []) as Array<{ id: string; name: string; segment?: string; status?: string }>);
+      setCityOperations((cityRows || []) as Array<{ id: string; name: string; status: string; surge: string }>);
+    };
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, []);
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -19,7 +52,7 @@ const AdminOperations: React.FC = () => {
             <CardTitle>Support Queue</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {adminInsights.supportTickets.map((ticket) => (
+            {supportTickets.map((ticket) => (
               <div key={ticket.id} className="flex items-center justify-between rounded-lg border p-3">
                 <div>
                   <p className="font-semibold">{ticket.type}</p>
@@ -64,7 +97,7 @@ const AdminOperations: React.FC = () => {
                     <p className="font-semibold">{exp.name}</p>
                     <p className="text-xs text-muted-foreground">{exp.segment}</p>
                   </div>
-                  <Badge variant={exp.status === "Running" ? "outline" : "secondary"}>{exp.status}</Badge>
+                  <Badge variant={exp.status === "running" ? "outline" : "secondary"}>{exp.status}</Badge>
                 </div>
               ))}
             </CardContent>
@@ -86,7 +119,7 @@ const AdminOperations: React.FC = () => {
                   <Label htmlFor={`toggle-${city.id}`} className="text-sm">
                     {city.status}
                   </Label>
-                  <Switch id={`toggle-${city.id}`} defaultChecked={city.status === "Online"} />
+                  <Switch id={`toggle-${city.id}`} defaultChecked={city.status === "online"} />
                 </div>
               </div>
             ))}

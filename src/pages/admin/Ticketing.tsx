@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AdminLayout from "@/components/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { MessageSquare, Plus, Search, User, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { adminInsights } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
 
 interface Ticket {
   id: string;
@@ -31,59 +31,63 @@ interface Ticket {
 }
 
 const Ticketing: React.FC = () => {
-  const [tickets, setTickets] = useState<Ticket[]>([
-    {
-      id: "TICK-001",
-      subject: "Order #ORD123 Issue",
-      type: "Order Problem",
-      priority: "high",
-      status: "open",
-      assignedTo: "Agent A",
-      createdAt: "2025-01-28T10:00:00Z",
-      updatedAt: "2025-01-28T10:00:00Z",
-      customer: "user1@example.com",
-      description: "Order was delivered to wrong address",
-      messages: [
-        { sender: "Customer", message: "My order was delivered to the wrong address", timestamp: "2025-01-28T10:00:00Z" },
-      ],
-    },
-    {
-      id: "TICK-002",
-      subject: "Refund Request",
-      type: "Refund",
-      priority: "medium",
-      status: "in_progress",
-      assignedTo: "Agent B",
-      createdAt: "2025-01-27T14:30:00Z",
-      updatedAt: "2025-01-28T09:00:00Z",
-      customer: "user2@example.com",
-      description: "Requesting refund for cancelled order",
-      messages: [
-        { sender: "Customer", message: "I need a refund for order #ORD456", timestamp: "2025-01-27T14:30:00Z" },
-        { sender: "Agent B", message: "We're processing your refund request", timestamp: "2025-01-28T09:00:00Z" },
-      ],
-    },
-    {
-      id: "TICK-003",
-      subject: "Payment Issue",
-      type: "Payment",
-      priority: "urgent",
-      status: "open",
-      assignedTo: "Unassigned",
-      createdAt: "2025-01-28T11:00:00Z",
-      updatedAt: "2025-01-28T11:00:00Z",
-      customer: "user3@example.com",
-      description: "Payment was charged twice",
-      messages: [
-        { sender: "Customer", message: "I was charged twice for the same order", timestamp: "2025-01-28T11:00:00Z" },
-      ],
-    },
-  ]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTicket, setNewTicket] = useState({
+    subject: "",
+    customerEmail: "",
+    description: "",
+  });
+
+  useEffect(() => {
+    let active = true;
+    const loadTickets = async () => {
+      const [{ data: ticketRows }, { data: messageRows }] = await Promise.all([
+        supabase
+          .from("support_tickets")
+          .select("id, subject, type, priority, status, assigned_to, customer_email, description, created_at, updated_at")
+          .order("updated_at", { ascending: false }),
+        supabase.from("support_ticket_messages").select("ticket_id, sender, message, timestamp").order("timestamp"),
+      ]);
+
+      if (!active) return;
+
+      const messageMap = (messageRows || []).reduce<Record<string, Ticket["messages"]>>((acc, message) => {
+        if (!acc[message.ticket_id]) acc[message.ticket_id] = [];
+        acc[message.ticket_id].push({
+          sender: message.sender,
+          message: message.message,
+          timestamp: message.timestamp,
+        });
+        return acc;
+      }, {});
+
+      setTickets(
+        (ticketRows || []).map((ticket) => ({
+          id: ticket.id,
+          subject: ticket.subject,
+          type: ticket.type || "General",
+          priority: (ticket.priority || "low") as Ticket["priority"],
+          status: (ticket.status || "open") as Ticket["status"],
+          assignedTo: ticket.assigned_to || "Unassigned",
+          createdAt: ticket.created_at,
+          updatedAt: ticket.updated_at,
+          customer: ticket.customer_email || "",
+          description: ticket.description || "",
+          messages: messageMap[ticket.id] || [],
+        }))
+      );
+    };
+    loadTickets();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = ticket.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -94,11 +98,13 @@ const Ticketing: React.FC = () => {
 
   const handleUpdateStatus = (ticketId: string, newStatus: Ticket["status"]) => {
     setTickets(tickets.map((t) => (t.id === ticketId ? { ...t, status: newStatus, updatedAt: new Date().toISOString() } : t)));
+    supabase.from("support_tickets").update({ status: newStatus, updated_at: new Date().toISOString() }).eq("id", ticketId);
     toast.success("Ticket status updated");
   };
 
   const handleAssign = (ticketId: string, agent: string) => {
     setTickets(tickets.map((t) => (t.id === ticketId ? { ...t, assignedTo: agent, updatedAt: new Date().toISOString() } : t)));
+    supabase.from("support_tickets").update({ assigned_to: agent, updated_at: new Date().toISOString() }).eq("id", ticketId);
     toast.success("Ticket assigned");
   };
 
@@ -117,7 +123,62 @@ const Ticketing: React.FC = () => {
     };
     setTickets(tickets.map((t) => (t.id === ticketId ? updatedTicket : t)));
     setNewMessage("");
+    supabase.from("support_ticket_messages").insert({
+      ticket_id: ticketId,
+      sender: "Agent",
+      message: newMessage,
+      timestamp: new Date().toISOString(),
+    });
+    supabase.from("support_tickets").update({ updated_at: new Date().toISOString() }).eq("id", ticketId);
     toast.success("Message sent");
+  };
+
+  const handleCreateTicket = async () => {
+    if (!newTicket.subject.trim() || !newTicket.customerEmail.trim()) {
+      toast.error("Subject and customer email are required");
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("support_tickets")
+      .insert({
+        subject: newTicket.subject.trim(),
+        type: "General",
+        priority: "medium",
+        status: "open",
+        assigned_to: "Unassigned",
+        customer_email: newTicket.customerEmail.trim(),
+        description: newTicket.description.trim(),
+        created_at: timestamp,
+        updated_at: timestamp,
+      })
+      .select()
+      .maybeSingle();
+    if (error) {
+      toast.error("Failed to create ticket");
+      return;
+    }
+    if (data) {
+      setTickets((prev) => [
+        {
+          id: data.id,
+          subject: data.subject,
+          type: data.type || "General",
+          priority: (data.priority || "medium") as Ticket["priority"],
+          status: (data.status || "open") as Ticket["status"],
+          assignedTo: data.assigned_to || "Unassigned",
+          createdAt: data.created_at,
+          updatedAt: data.updated_at,
+          customer: data.customer_email || "",
+          description: data.description || "",
+          messages: [],
+        },
+        ...prev,
+      ]);
+    }
+    setNewTicket({ subject: "", customerEmail: "", description: "" });
+    setIsCreateOpen(false);
+    toast.success("Ticket created");
   };
 
   const getPriorityColor = (priority: string) => {
@@ -155,7 +216,7 @@ const Ticketing: React.FC = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-4xl font-bold text-foreground">Support & Ticketing</h1>
-          <Dialog>
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" />
@@ -170,17 +231,36 @@ const Ticketing: React.FC = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="subject">Subject</Label>
-                  <Input id="subject" placeholder="Ticket subject" />
+                  <Input
+                    id="subject"
+                    placeholder="Ticket subject"
+                    value={newTicket.subject}
+                    onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="customer">Customer Email</Label>
-                  <Input id="customer" type="email" placeholder="customer@example.com" />
+                  <Input
+                    id="customer"
+                    type="email"
+                    placeholder="customer@example.com"
+                    value={newTicket.customerEmail}
+                    onChange={(e) => setNewTicket({ ...newTicket, customerEmail: e.target.value })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
-                  <Textarea id="description" rows={4} placeholder="Ticket description" />
+                  <Textarea
+                    id="description"
+                    rows={4}
+                    placeholder="Ticket description"
+                    value={newTicket.description}
+                    onChange={(e) => setNewTicket({ ...newTicket, description: e.target.value })}
+                  />
                 </div>
-                <Button className="w-full">Create Ticket</Button>
+                <Button className="w-full" onClick={handleCreateTicket}>
+                  Create Ticket
+                </Button>
               </div>
             </DialogContent>
           </Dialog>

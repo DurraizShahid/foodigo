@@ -1,19 +1,76 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { Package, Clock, MapPin, ArrowRight } from "lucide-react";
-import { orders, restaurants } from "@/data/dummyData";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 const OrderHistory: React.FC = () => {
-  const getRestaurantName = (restaurantId: string) => {
-    const restaurant = restaurants.find((r) => r.id === restaurantId);
-    return restaurant?.name || "Unknown Restaurant";
-  };
+  const { user } = useAuth();
+  const [orders, setOrders] = useState<
+    Array<{
+      id: string;
+      restaurantId: string | null;
+      restaurantName: string;
+      items: Array<{ menuItemId: string | null; name: string; quantity: number; price: number }>;
+      total: number;
+      status: string;
+      createdAt: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadOrders = async () => {
+      if (!user) {
+        setOrders([]);
+        return;
+      }
+      const { data } = await supabase
+        .from("orders")
+        .select("id, restaurant_id, total, status, created_at, order_items(menu_item_id, name, quantity, price)")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      const restaurantIds = Array.from(new Set((data || []).map((order) => order.restaurant_id).filter(Boolean))) as string[];
+      const { data: restaurants } = restaurantIds.length
+        ? await supabase.from("restaurants").select("id, name").in("id", restaurantIds)
+        : { data: [] as Array<{ id: string; name: string }> };
+
+      const restaurantMap = (restaurants || []).reduce<Record<string, string>>((acc, restaurant) => {
+        acc[restaurant.id] = restaurant.name;
+        return acc;
+      }, {});
+
+      if (!active) return;
+
+      setOrders(
+        (data || []).map((order) => ({
+          id: order.id,
+          restaurantId: order.restaurant_id,
+          restaurantName: order.restaurant_id ? restaurantMap[order.restaurant_id] || "Unknown Restaurant" : "Unknown Restaurant",
+          items: (order.order_items || []).map((item) => ({
+            menuItemId: item.menu_item_id,
+            name: item.name,
+            quantity: item.quantity,
+            price: Number(item.price),
+          })),
+          total: Number(order.total),
+          status: order.status,
+          createdAt: order.created_at,
+        }))
+      );
+    };
+    loadOrders();
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -53,7 +110,7 @@ const OrderHistory: React.FC = () => {
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h3 className="text-lg font-semibold mb-1">{getRestaurantName(order.restaurantId)}</h3>
+                <h3 className="text-lg font-semibold mb-1">{order.restaurantName}</h3>
                       <p className="text-sm text-muted-foreground">
                         Order #{order.id.slice(-6).toUpperCase()}
                       </p>

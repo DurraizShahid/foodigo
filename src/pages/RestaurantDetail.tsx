@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import Layout from "@/components/Layout";
-import { restaurants } from "@/data/dummyData";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Star, Clock, MapPin } from "lucide-react";
@@ -11,13 +10,64 @@ import { useCart } from "@/context/CartContext";
 import { MenuItemCustomization, CustomizedMenuItem } from "@/components/MenuItemCustomization";
 import { RatingsAndReviews } from "@/components/RatingsAndReviews";
 import SocialShareButtons from "@/components/SocialShareButtons";
+import { supabase, resolveImageUrl } from "@/lib/supabaseClient";
 
 const RestaurantDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const restaurant = restaurants.find((r) => r.id === id);
   const { addToCart } = useCart();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isCustomizationOpen, setIsCustomizationOpen] = useState(false);
+  const [restaurant, setRestaurant] = useState<{
+    id: string;
+    name: string;
+    cuisine: string;
+    rating: number;
+    deliveryTime: string;
+    address: string;
+    description: string;
+    image: string;
+    menu: Array<{ id: string; name: string; price: number; description: string; image: string; imagePath?: string | null; imageUrl?: string | null }>;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    const loadRestaurant = async () => {
+      if (!id) return;
+      const { data } = await supabase
+        .from("restaurants")
+        .select("id, name, cuisine, rating, delivery_time, address, description, image_path, image_url, menu_items(id, name, price, description, image_path, image_url)")
+        .eq("id", id)
+        .maybeSingle();
+      if (!active) return;
+      if (!data) {
+        setRestaurant(null);
+        return;
+      }
+      setRestaurant({
+        id: data.id,
+        name: data.name,
+        cuisine: data.cuisine || "",
+        rating: Number(data.rating || 0),
+        deliveryTime: data.delivery_time || "",
+        address: data.address || "",
+        description: data.description || "",
+        image: resolveImageUrl("restaurants", data.image_path, data.image_url),
+        menu: (data.menu_items || []).map((item) => ({
+          id: item.id,
+          name: item.name,
+          price: Number(item.price),
+          description: item.description || "",
+          image: resolveImageUrl("menu-items", item.image_path, item.image_url),
+          imagePath: item.image_path,
+          imageUrl: item.image_url,
+        })),
+      });
+    };
+    loadRestaurant();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
   if (!restaurant) {
     return (
@@ -123,11 +173,13 @@ const RestaurantDetail: React.FC = () => {
             // Add base item with quantity
             for (let i = 0; i < customizedItem.quantity; i++) {
               addToCart({
-                id: `${selectedItem.id}-${i}`,
+                id: selectedItem.id,
                 name: selectedItem.name,
                 price: customizedItem.price,
                 image: selectedItem.image,
                 description: selectedItem.description,
+                imagePath: selectedItem.imagePath,
+                imageUrl: selectedItem.imageUrl,
               });
             }
           }}

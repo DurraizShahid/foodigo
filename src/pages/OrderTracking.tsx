@@ -7,15 +7,23 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Layout from "@/components/Layout";
 import { MapPin, Clock, CheckCircle2, Package, Truck, Home } from "lucide-react";
-import { orders, restaurants } from "@/data/dummyData";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabaseClient";
+import { useAuth } from "@/context/AuthContext";
 
 const OrderTracking: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const order = orders.find((o) => o.id === id);
-  const restaurant = order ? restaurants.find((r) => r.id === order.restaurantId) : null;
+  const { user } = useAuth();
+  const [order, setOrder] = useState<{
+    id: string;
+    restaurantId: string | null;
+    restaurantName: string;
+    items: Array<{ name: string; quantity: number; price: number }>;
+    total: number;
+    status: string;
+  } | null>(null);
 
-  const [currentStatus, setCurrentStatus] = useState(order?.status || "Pending");
+  const [currentStatus, setCurrentStatus] = useState("Pending");
   const [driverLocation, setDriverLocation] = useState({ lat: 37.7749, lng: -122.4194 });
 
   const statusSteps = [
@@ -26,6 +34,47 @@ const OrderTracking: React.FC = () => {
   ];
 
   const currentStepIndex = statusSteps.findIndex((step) => step.key === currentStatus);
+
+  useEffect(() => {
+    let active = true;
+    const loadOrder = async () => {
+      if (!id || !user) {
+        setOrder(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("orders")
+        .select("id, restaurant_id, total, status, order_items(name, quantity, price)")
+        .eq("id", id)
+        .maybeSingle();
+      if (!data) {
+        if (active) setOrder(null);
+        return;
+      }
+      const restaurantId = data.restaurant_id;
+      const { data: restaurant } = restaurantId
+        ? await supabase.from("restaurants").select("id, name").eq("id", restaurantId).maybeSingle()
+        : { data: null };
+      if (!active) return;
+      setOrder({
+        id: data.id,
+        restaurantId,
+        restaurantName: restaurant?.name || "Unknown Restaurant",
+        items: (data.order_items || []).map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: Number(item.price),
+        })),
+        total: Number(data.total),
+        status: data.status,
+      });
+      setCurrentStatus(data.status);
+    };
+    loadOrder();
+    return () => {
+      active = false;
+    };
+  }, [id, user]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -45,7 +94,7 @@ const OrderTracking: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  if (!order || !restaurant) {
+  if (!order) {
     return (
       <Layout>
         <div className="text-center py-12">
@@ -71,7 +120,7 @@ const OrderTracking: React.FC = () => {
         <Card>
           <CardContent className="p-6">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-2">{restaurant.name}</h2>
+              <h2 className="text-xl font-semibold mb-2">{order.restaurantName}</h2>
               <p className="text-sm text-muted-foreground">Order #{order.id.slice(-6).toUpperCase()}</p>
             </div>
 
